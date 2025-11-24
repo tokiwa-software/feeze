@@ -1,6 +1,6 @@
-# Tokiwa Software Fuzion Contributor Agreement
+# Tokiwa Software Feeze Contributor Agreement
 
-This Contributor Agreement („agreement“) applies to any contribution that you make to Tokiwa Software GmbH's Fuzion ("we" or "us"). The purpose of this agreement is to clarify and document the rights granted by you to us.
+This Contributor Agreement („agreement“) applies to any contribution that you make to Tokiwa Software GmbH's Feeze ("we" or "us"). The purpose of this agreement is to clarify and document the rights granted by you to us.
 
 ## 1. Definitions
 
