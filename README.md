@@ -10,6 +10,10 @@ can also help to improve general throughput.
 
 ## Name `feeze`
 
+The name was chosen for its Scots meaning _to untwist; to unravel, as the end of
+a thread or rope_, which is what the tool is supposed to do with the threads
+running on your system.
+
 ### Definition of [feeze by wiktionary](https://en.wiktionary.org/wiki/feeze)
 
 #### Etymology 3
