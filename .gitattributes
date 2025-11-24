@@ -1,0 +1,12 @@
+* text eol=lf
+
+# Change language for files ending in .fz to Fuzion
+#
+# NYI: This should happen automatically if Fuzion support was added to
+# linguist: https://github.com/github/linguist
+#
+*.fz linguist-detectable
+*.fz linguist-language=Fuzion
+
+# PNGs are binary files, CRLF should not be replaced
+*.png binary
