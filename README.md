@@ -35,7 +35,11 @@ A nice looking cake shop in Japan: [フィーゼ](https://nasuguru.com/feeze/).
 
 ## Building
 
-NYI: Documentation
+### Building
+
+To clone the repository, do not forget to provide `--recurse-submodules`:
+
+    > git clone --recurse-submodules https://github.com/chaconinc/MainProject
 
 ## Documentation
 
