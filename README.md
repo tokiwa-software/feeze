@@ -1,5 +1,5 @@
 # feeze
-Interactive graphical thread and scheduling analysis tools using eBPF
+Interactive graphical thread and scheduling analysis tool using eBPF.
 
 ## Goal
 
