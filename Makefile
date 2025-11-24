@@ -37,9 +37,11 @@ BUILD_INCLUDE := $(BUILD_DIR)/include
 # main name
 C_MAIN := feeze_recorder
 
-LIBBPF_SRC := $(FEEZE_REPO)/libbpf/src
-LIBBPF_OBJ := $(BUILD_DIR)/libbpf_obj/libbpf.a
+LIBBPF      := $(FEEZE_REPO)/libbpf
+LIBBPF_SRC  := $(LIBBPF)/src
+LIBBPF_OBJ  := $(BUILD_DIR)/libbpf_obj/libbpf.a
 LIBBPF_DEST := $(BUILD_DIR)/libbpf
+VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 .DELETE_ON_ERROR:
@@ -49,8 +51,18 @@ ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 all: $(BUILD_DIR)/bin/$(C_MAIN)
 
+$(LIBBPF)/README.md $(VMLINUX_H)/README.md:
+	@echo $@
+	@echo "*** error: missing submodule libbpf and vmlinunx.h. Please do "
+	@echo ""
+	@echo "  > git submodule init"
+	@echo "  > git submodule update"
+	@echo ""
+	@exit 1
+
+
 # Build libbpf
-$(LIBBPF_OBJ) $(LIBBPF_DEST): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile)
+$(LIBBPF_OBJ) $(LIBBPF_DEST): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile) $(LIBBPF)/README.md
 	mkdir -p $(dir $(LIBBPF_OBJ))
 	mkdir -p $(dir $(LIBBPF_DEST))
 	make -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1		            \
@@ -73,7 +85,7 @@ CLANG_BPF_SYS_INCLUDES ?= $(shell clang -v -E - </dev/null 2>&1 \
 	| sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
 
 # Build BPF code
-$(BUILD_OBJ)/$(C_MAIN).bpf.o: src/bpf/$(C_MAIN).bpf.c $(LIBBPF_OBJ)
+$(BUILD_OBJ)/$(C_MAIN).bpf.o: src/bpf/$(C_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINUX_H)/README.md
 	mkdir -p $(@D)
 	clang -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH)		                     \
                      -I$(FEEZE_SRC)/include                                                  \
