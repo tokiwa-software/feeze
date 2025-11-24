@@ -27,7 +27,7 @@ feeze (third-person singular simple present feezes, present participle feezing, 
 
 ### Other uses
 
-A cake shop in Japan [feeze](https://nasuguru.com/feeze/),
+A nice looking cake shop in Japan: [フィーゼ](https://nasuguru.com/feeze/).
 
 ## Building
 
