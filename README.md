@@ -39,7 +39,7 @@ A nice looking cake shop in Japan: [フィーゼ](https://nasuguru.com/feeze/).
 
 To clone the repository, do not forget to provide `--recurse-submodules`:
 
-    > git clone --recurse-submodules https://github.com/chaconinc/MainProject
+    > git clone --recurse-submodules https://github.com/tokiwa-software/feeze
 
 ## Documentation
 
