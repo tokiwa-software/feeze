@@ -30,8 +30,8 @@ FEEZE_REPO = $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 FEEZE_SRC = $(FEEZE_REPO)/src
 
 # the build directory is relative to the current dir
-BUILD_DIR := ./build
-BUILD_OBJ := $(BUILD_DIR)/obj
+BUILD_DIR     := ./build
+BUILD_OBJ     := $(BUILD_DIR)/obj
 BUILD_INCLUDE := $(BUILD_DIR)/include
 
 # main name
@@ -43,6 +43,8 @@ LIBBPF_OBJ  := $(BUILD_DIR)/libbpf_obj/libbpf.a
 LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
+
+BPFTOOL ?= /usr/lib/linux-tools/6.8.0-87-generic/bpftool
 
 .DELETE_ON_ERROR:
 
@@ -95,7 +97,11 @@ $(BUILD_OBJ)/$(C_MAIN).bpf.o: src/bpf/$(C_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINUX_H)
 # Generate BPF skeletons
 $(BUILD_INCLUDE)/%.skel.h: $(BUILD_DIR)/obj/%.bpf.o
 	mkdir -p $(@D)
-	/usr/lib/linux-tools/6.8.0-87-generic/bpftool gen skeleton $< > $@
+	@if [ ! -f "$(BPFTOOL)" ]; then \
+	  echo "*** error: bpftool not found, please set env var BPFTOOL" >&2; \
+	  exit 1; \
+	fi
+	$(BPFTOOL) gen skeleton $< > $@
 
 $(BUILD_DIR)/obj/$(C_MAIN).o: $(FEEZE_SRC)/c/$(C_MAIN).c $(BUILD_INCLUDE)/$(C_MAIN).skel.h
 	mkdir -p $(@D)
@@ -106,7 +112,7 @@ $(BUILD_DIR)/bin/$(C_MAIN): $(BUILD_DIR)/obj/$(C_MAIN).o $(LIBBPF_OBJ)
 	clang -g -Wall $^ -lelf -lz -o $@
 
 # run the binary
-run: $(BUILD_DIR)/bin/$(C_MAIN)
+run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
 	sudo $(BUILD_DIR)/bin/$(C_MAIN)
 
 # remove all built files
