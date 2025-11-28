@@ -26,13 +26,15 @@
 # -----------------------------------------------------------------------
 
 
-FEEZE_REPO = $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
-FEEZE_SRC = $(FEEZE_REPO)/src
+FEEZE_REPO     := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+FEEZE_SRC      := $(FEEZE_REPO)/src
+FEEZE_SRC_JAVA := $(FEEZE_SRC)/java
 
 # the build directory is relative to the current dir
 BUILD_DIR     := ./build
 BUILD_OBJ     := $(BUILD_DIR)/obj
 BUILD_INCLUDE := $(BUILD_DIR)/include
+BUILD_CLASSES := $(BUILD_DIR)/classes
 
 # main name
 C_MAIN := feeze_recorder
@@ -45,6 +47,11 @@ VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 BPFTOOL ?= /usr/lib/linux-tools/6.8.0-87-generic/bpftool
+
+JAVA_SOURCES := $(shell find $(FEEZE_SRC_JAVA) -name "*.java")
+JAVA_MAIN := Feeze
+JAVA_MAIN_CLASSFILE := dev/flang/feeze/$(JAVA_MAIN).class
+JAVA_MAIN_CLASS     := dev.flang.feeze.$(JAVA_MAIN)
 
 .DELETE_ON_ERROR:
 
@@ -114,6 +121,13 @@ $(BUILD_DIR)/bin/$(C_MAIN): $(BUILD_DIR)/obj/$(C_MAIN).o $(LIBBPF_OBJ)
 # run the binary
 run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
 	sudo $(BUILD_DIR)/bin/$(C_MAIN)
+
+$(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
+	mkdir -p $(BUILD_CLASSES)
+	javac -d $(BUILD_CLASSES) $^ && touch $@
+
+run: $(BUILD_DIR)/classes/$(JAVA_MAIN_CLASSFILE)
+	java -cp $(BUILD_CLASSES) $(JAVA_MAIN_CLASS)
 
 # remove all built files
 clean:
