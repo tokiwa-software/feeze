@@ -57,7 +57,7 @@ public class Feeze implements Offsets
 
   static Data _data = null;
 
-  public static final String SHARED_MEM_NAME = "/tmp/fuzion_events_recorder_data";
+  public static final String SHARED_MEM_NAME = "/tmp/feeze_events_recorder_data";
   public static final long   SHARED_MEM_SIZE = 64*1024*1024;
 
 
