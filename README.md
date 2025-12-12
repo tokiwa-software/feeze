@@ -55,7 +55,7 @@ will start the graphical interface that will display the last recorded data. If 
 
     > make run_recorder
 
-which will record scheduling data. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong. 
+which will record scheduling data using `sudo`, so you will need sudo rights and enter your password. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong. 
 
 Scheduling data will be passed to the graphical tool via shared memory mapped from file `/tmp/feeze_events_recorder_data`. To record new data, first delete this file using
 
