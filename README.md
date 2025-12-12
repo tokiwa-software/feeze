@@ -43,4 +43,59 @@ To clone the repository, do not forget to provide `--recurse-submodules`:
 
 ## Documentation
 
-NYI: Documentation
+NYI: Documentation mostly missing
+
+### Running and recording data
+
+Currently, there is no main control window, but two command line tools that can be started as follows: 
+
+    > make run 
+    
+will start the graphical interface that will display the last recorded data. If not data is found, this will wait until some data was recorded via
+
+    > make run_recorder
+
+which will record scheduling data. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong. 
+
+Scheduling data will be passed to the graphical tool via shared memory mapped from file `/tmp/feeze_events_recorder_data`. To record new data, first delete this file using
+
+    > rm /tmp/feeze_events_recorder_data
+
+### Graphical Display
+#### The displayed data
+
+Threads are grouped by their processes. 
+
+Each thread is displayed as a horizontal line with the following properties
+
+- thin grey for inactive threads in and aroudn the displayed area
+- thin blue for ready or blocked threads
+- think green for running threads
+- thick dark green for threads that switch between running/ready/blocked at a time scale below the displayed resolution
+
+Depending on the displayed area and time compression, inactive threads might get collapsed into thin lines. 
+
+#### Scrolling through the display
+
+You have several options to scroll through the display: 
+
+- buttons `🠈🠊` / `🠊🠈` to compress or expand the time axis
+- buttons `+zoom` / `-zoom` to zoom in or out (zoom both axes)
+
+##### Mouse control
+
+- left / middle mouse button to uncompress / expand the time axis, hold to auto-repeat
+- shift and left / middke mouse to zoom in / out, hold to auto-repeat
+- left mouse button and move to drag displayed area
+
+##### Key control 
+
+- up/down/left/right arrow keys to move the displayed area
+
+  
+
+
+
+
+
+
