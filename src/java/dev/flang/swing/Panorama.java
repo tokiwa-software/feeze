@@ -308,6 +308,15 @@ public abstract class Panorama extends JPanel
     var res = new JScrollPane(this);
     res.setPreferredSize(new Dimension(w, h));
 
+    // increment used for arrow buttons and mouse wheel.
+    //
+    // NYI: IMPROVEMENT: instead of hard coding this, would be better to make
+    // this dependend on the window size and, e.g., always use 1/10th of the
+    // window width or height, resp., as the increment. Tis should then be
+    // updated dynamically on a window resize event.
+    res.getVerticalScrollBar  ().setUnitIncrement(64);
+    res.getHorizontalScrollBar().setUnitIncrement(64);
+
     adjustPos(0, MIN_FRAME_HEIGHT);
     _viewport = res.getViewport();
     return res;
