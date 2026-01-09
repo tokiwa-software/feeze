@@ -516,85 +516,81 @@ class SchedulingPanorama extends Panorama
                 for (var a = from_a; a<t._num_actions; a++)
                   {
                     var a0 = a;
-                    if (a < t._num_actions)
+                    var at = t._at[a];
+                    Color nextCol;
+                    int nextWidth;
+                    if (t == _data.oldThreadAt(at))
                       {
-                        var at = t._at[a];
-                        Color nextCol;
-                        int nextWidth;
+                        nextCol = Color.blue;
+                        nextWidth = 1;
+                      }
+                    else if (t == _data.newThreadAt(at))
+                      {
+                        nextCol = DARK_GREEN;
+                        nextWidth = 15;
+                      }
+                    else
+                      {
+                        nextCol = Color.magenta;
+                        nextWidth = 20;
+                      }
+                    var nl = _data.nanos(at)-_data.nanosMin();
+                    var nr = (a+1 >= t._num_actions ? _data.nanosMax()
+                                                    : _data.nanos(t._at[a+1])) -_data.nanosMin();
+                    nr = Math.max(nl,nr); // NYI: REMOVE when it is ensured that time is monotonic!
+                    var xl = nanos_to_posx(nl);
+                    var xr = nanos_to_posx(nr);
+                    var nnr = (a+2 >= t._num_actions ? _data.nanosMax()
+                                                     : _data.nanos(t._at[a+2])) -_data.nanosMin();
+                    if (a == 0)
+                      {
                         if (t == _data.oldThreadAt(at))
                           {
-                            nextCol = Color.blue;
-                            nextWidth = 1;
+                            g.setColor(DARK_GREEN);
+                            _zoom.drawHLine(g,15,nanos_to_posx(0),y,xl);
                           }
                         else if (t == _data.newThreadAt(at))
                           {
-                            nextCol = DARK_GREEN;
-                            nextWidth = 15;
+                            g.setColor(Color.blue);
+                            _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
                           }
                         else
                           {
                             nextCol = Color.magenta;
                             nextWidth = 20;
                           }
-                        var nl = _data.nanos(at)-_data.nanosMin();
-                        var nr = (a+1 >= t._num_actions ? _data.nanosMax()
-                                                        : _data.nanos(t._at[a+1])) -_data.nanosMin();
-                        nr = Math.max(nl,nr); // NYI: REMOVE when it is ensured that time is monotonic!
-                        var xl = nanos_to_posx(nl);
-                        var xr = nanos_to_posx(nr);
-                        var nnr = (a+2 >= t._num_actions ? _data.nanosMax()
-                                                         : _data.nanos(t._at[a+2])) -_data.nanosMin();
-                        if (a == 0)
-                          {
-                            if (t == _data.oldThreadAt(at))
-                              {
-                                g.setColor(DARK_GREEN);
-                                _zoom.drawHLine(g,15,nanos_to_posx(0),y,xl);
-                              }
-                            else if (t == _data.newThreadAt(at))
-                              {
-                                g.setColor(Color.blue);
-                                _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
-                              }
-                            else
-                              {
-                                nextCol = Color.magenta;
-                                nextWidth = 20;
-                              }
-                          }
-                        if (posx_to_nanos(xl+2) < nr ||
-                            posx_to_nanos(xl+4) < nnr)
-                          {
-                            drawCnt++;
-                            g.setColor(nextCol);
+                      }
+                    if (posx_to_nanos(xl+2) < nr ||
+                        posx_to_nanos(xl+4) < nnr)
+                      {
+                        drawCnt++;
+                        g.setColor(nextCol);
 
-                            _zoom.drawHLine(g,nextWidth,xl,y,xr);
-                          }
-                        else if (blurredUpToX < xr)
-                          {
-                            drawCnt2++;
-                            g.setColor(VERY_DARK_GREEN);
-                            _zoom.drawHLine(g,15,xl,y,xr);
-                            blurredUpToX = xr;
-                          }
+                        _zoom.drawHLine(g,nextWidth,xl,y,xr);
+                      }
+                    else if (blurredUpToX < xr)
+                      {
+                        drawCnt2++;
+                        g.setColor(VERY_DARK_GREEN);
+                        _zoom.drawHLine(g,15,xl,y,xr);
+                        blurredUpToX = xr;
+                      }
 
-                        if (xr > r.x+r.width)
+                    if (xr > r.x+r.width)
+                      {
+                        a = t._num_actions;
+                      }
+                    if (a+1 >= t._num_actions)
+                      {
+                        if (t == _data.oldThreadAt(at))
                           {
-                            a = t._num_actions;
+                            g.setColor(Color.blue);
+                            _zoom.drawLine(g,1,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()),y);
                           }
-                        if (a+1 >= t._num_actions)
+                        else if (t == _data.newThreadAt(at))
                           {
-                            if (t == _data.oldThreadAt(at))
-                              {
-                                g.setColor(Color.blue);
-                                _zoom.drawLine(g,1,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()),y);
-                              }
-                            else if (t == _data.newThreadAt(at))
-                              {
-                                g.setColor(DARK_GREEN);
-                                _zoom.drawLine(g,15,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()),y);
-                              }
-
+                            g.setColor(DARK_GREEN);
+                            _zoom.drawLine(g,15,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()),y);
                           }
                       }
                   }
