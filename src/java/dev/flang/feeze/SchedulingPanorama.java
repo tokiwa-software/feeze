@@ -215,43 +215,49 @@ class SchedulingPanorama extends Panorama
   /**
    * Convert relative_ns to compressed_x (x coordinate taking current time compression into account)
    */
-  int  compress_x        (long ns         ) { return (int)  (ns           * pixelsPerNano()); }
+  int    compress_x      (long ns            ) { return (int) (compress_x((double) ns) + 0.5); }
+  double compress_x      (double ns          ) { return ns * pixelsPerNano();                  }
 
   /**
    * Convert compressed_x to relative_ns
    */
-  long uncompress_x      (int compressed_x) { return (long) (compressed_x / pixelsPerNano()); }
+  long   uncompress_x    (int    compressed_x) { return (long) uncompress_x(compressed_x);     }
+  double uncompress_x    (double compressed_x) { return compressed_x / pixelsPerNano();        }
 
   /**
    * Convert compressed_x to zoomed_x (x coordinate taking zoom factor into account)
    */
-  int  zoom_x            (int compressed_x) { return zoom  (compressed_x);                     }
+  int    zoom_x          (int    compressed_x) { return zoom  (compressed_x);                  }
+  double zoom_x          (double compressed_x) { return zoom  (compressed_x);                  }
 
   /**
    * Convert zoomed_x to compressed_x
    */
-  int  unzoom_x          (int zoomed_x    ) { return unzoom(zoomed_x);                         }
+  int    unzoom_x        (int    zoomed_x    ) { return unzoom(zoomed_x);                      }
+  double unzoom_x        (double zoomed_x    ) { return unzoom(zoomed_x);                      }
 
   /**
    * Convert zoomed_x to translated_x (x coordinate taking left gap into account
    */
-  int  translate_x       (int zoomed_x    ) { return zoomed_x     + leftFrame();                 }
+  int  translate_x       (int zoomed_x       ) { return zoomed_x     + leftFrame();            }
 
   /**
    * Convert translated_x to zoomed_x
    */
-  int  untranslate_x     (int translated_x) { return translated_x - leftFrame();                 }
+  int  untranslate_x     (int translated_x   ) { return translated_x - leftFrame();            }
 
 
   /**
    * Convert unzoomed x/y coordintate into zoomed coordinate
    */
-  int  zoom              (int xy) { return _zoom.zoom  (xy); }
+  int    zoom            (int    xy          ) { return _zoom.zoom(xy);                        }
+  double zoom            (double xy          ) { return _zoom.zoom(xy);                        }
 
   /**
    * Convert zoomed x/y coordintate into unzoomed coordinate
    */
-  int  unzoom            (int xy) { return _zoom.unzoom(xy); }
+  int    unzoom          (int    xy          ) { return _zoom.unzoom(xy);                      }
+  double unzoom          (double xy          ) { return _zoom.unzoom(xy);                      }
 
 
   /**
@@ -259,7 +265,7 @@ class SchedulingPanorama extends Panorama
    */
   int nanos_to_posx(long ns)
   {
-    return translate_x(zoom_x(compress_x(ns)));
+    return translate_x((int) (zoom_x(compress_x((double) ns)) + 0.5));
   }
 
 
@@ -268,7 +274,7 @@ class SchedulingPanorama extends Panorama
    */
   long posx_to_nanos(int x)
   {
-    return uncompress_x(unzoom_x(untranslate_x(x)));
+    return (long) uncompress_x(unzoom_x((double) untranslate_x(x)));
   }
 
 
@@ -560,8 +566,8 @@ class SchedulingPanorama extends Panorama
                             nextWidth = 20;
                           }
                       }
-                    if (posx_to_nanos(xl+2) < nr ||
-                        posx_to_nanos(xl+4) < nnr)
+
+                    if (posx_to_nanos(xl+2) < nnr)
                       {
                         drawCnt++;
                         g.setColor(nextCol);

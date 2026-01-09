@@ -80,22 +80,35 @@ class Zoom
 
 
   /**
-   * zoom a given length l, but make sure l is never zoomed down to 0 unless it
-   * was 0 already.
+   * zoom a given integer length l.  This function uses integers and rounds the
+   * result to the nearest but never rounds to 0, but to +/-1 instead to avoid
+   * supressing the display of very thin events.
    *
    * @return the zoomed length
    */
   int zoom(int l)
   {
+    var zl = (int) (zoom((double) l) + 0.5);
     return
-      l > 0 ? Math.max( 1, (int) (l * _zoomFactor)) :
-      l < 0 ? Math.min(-1, (int) (l * _zoomFactor))
+      l > 0 ? Math.max( 1, zl) :
+      l < 0 ? Math.min(-1, zl)
             : 0;
   }
 
 
   /**
-   * unzoom a given length
+   * zoom a given length l using doubles.
+   *
+   * @return the zoomed length
+   */
+  double zoom(double l)
+  {
+    return l * _zoomFactor;
+  }
+
+
+  /**
+   * unzoom a length given as an integer. Round to the nearest integer.
    *
    * @param zl a zoomed length (created by {@code zoom()})
    *
@@ -103,9 +116,21 @@ class Zoom
    */
   int unzoom(int zl)
   {
-    return (int) (zl / _zoomFactor);
+    return (int) (unzoom(zl) + 0.5);
   }
 
+
+  /**
+   * unzoom a given length using doubles.
+   *
+   * @param zl a zoomed length (created by {@code zoom()})
+   *
+   * @return the original length
+   */
+  double unzoom(double zl)
+  {
+    return zl / _zoomFactor;
+  }
 
 
   /**
