@@ -849,7 +849,6 @@ class SchedulingPanorama extends Panorama
     super.rememberPosForScaling(posx,posy);
     _rememberedMiddleNs = posx_to_nanos(posx);
     _rememberedMiddleThread = posy_to_thread(posy);
-    System.out.println("REMMEBER MIDDLE "+_rememberedMiddleThread);
   }
 
 
