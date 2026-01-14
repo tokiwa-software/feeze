@@ -123,10 +123,18 @@ class SchedulingPanorama extends Panorama
 
 
   /**
-   * Field used to save time in the middle of the screen by
+   * During scaling, the original time in the middle of the screen. Set by
    * rememberPosForScaling().
    */
-  long rememberedMiddleNs;
+  long _rememberedMiddleNs;
+
+
+  /**
+   * During scaling, the original thread number (or fraction for in-between
+   * threads position) in the middle of the screen. Set by
+   * rememberPosForScaling().
+   */
+  double _rememberedMiddleThread;
 
 
   /**
@@ -338,6 +346,10 @@ class SchedulingPanorama extends Panorama
    */
   int threadY(int t)
   {
+    return threadY0(t)+topFrame();
+  }
+  int threadY0(int t)
+  {
     assert
       (t >= 0);
 
@@ -348,7 +360,7 @@ class SchedulingPanorama extends Panorama
       {
         _threadY = new int[_data._threads.size()];
         _threadShown = new boolean[_data._threads.size()];
-        double y = topFrame() + ts;
+        double y = ts;
         for (var i = 0; i<_data._threads.size(); i++)
           {
             var yd = threadYDelta(i, r);
@@ -364,6 +376,41 @@ class SchedulingPanorama extends Panorama
 
     var l = _threadY.length;
     var res = t < l ? _threadY[Math.max(0,t)] : (_threadY[l-1] + ts*(t-l));
+    return res;
+  }
+
+
+  /**
+   * For a given y coordinate, get the corresponding thread number. In case `y`
+   * lies betweend threads `ti` and `ti+1`, add the fraction of the in-between
+   * space that `y` is below `ti`.
+   */
+  double posy_to_thread(int y)
+  {
+    y = y - topFrame();
+    var ignore = threadY0(0);  // just interested in side effect of updating _threadY
+    int ti = 0;
+    while (ti+1 < _threadY.length && y >= _threadY[ti+1])
+      {
+        ti++;
+      }
+    var ty = _threadY[ti];
+    var delta = ti+1 < _threadY.length ? _threadY[ti+1]-ty : zoom((double) NORMAL_THREAD_SPACING);
+    return ti + (y - ty) / delta;
+  }
+
+  /**
+   * Get the y position corresponding to the result `t` that was obtained using
+   * `posy_to_thread`, i.e., after adjusting scaling factors, get the new y position.
+   */
+  int thread_to_posy(double t)
+  {
+    var ignore = threadY0(0);  // just interested in side effect of updating _threadY
+    var ti = Math.min(Math.max(0, (int) t), _threadY.length-1);
+    var ty = _threadY[ti];
+    var delta = ti+1 < _threadY.length ? _threadY[ti+1]-ty : zoom((double) NORMAL_THREAD_SPACING);
+    var res = (int) (ty + (t-ti) * delta);
+    res = res + topFrame();
     return res;
   }
 
@@ -418,8 +465,8 @@ class SchedulingPanorama extends Panorama
       }
     _threadShown[i] = f==0;
     return
-      (  f) * zoom(MIN_THREAD_SPACING) +
-      (1-f) * zoom(NORMAL_THREAD_SPACING);
+      (  f) * zoom((double) MIN_THREAD_SPACING) +
+      (1-f) * zoom((double) NORMAL_THREAD_SPACING);
   }
 
 
@@ -800,14 +847,26 @@ class SchedulingPanorama extends Panorama
   public void rememberPosForScaling(int posx, int posy)
   {
     super.rememberPosForScaling(posx,posy);
-    rememberedMiddleNs = posx_to_nanos(posx);
+    _rememberedMiddleNs = posx_to_nanos(posx);
+    _rememberedMiddleThread = posy_to_thread(posy);
+    System.out.println("REMMEBER MIDDLE "+_rememberedMiddleThread);
   }
 
 
   @Override
   public int recallX()
+  { // NYI: CLEANUP: rememberPosForScaling receives translated posx/posy, while
+    // recallX/recallY returns untranslated x/y posisiton. This should better
+    // both be the same!
+    return nanos_to_zoom_x(_rememberedMiddleNs);
+  }
+
+
+
+  @Override
+  public int recallY()
   {
-    return nanos_to_zoom_x(rememberedMiddleNs);
+    return thread_to_posy(_rememberedMiddleThread) - topFrame();
   }
 
 }
