@@ -599,9 +599,10 @@ class PanoramaListener
               _repeatCount = _activeComponent == _autorepeatFor
                 ? Math.min(_repeatCount + 1, 40)
                 : 1;
-              if (delta < 50 || noWaits >= 10)
+              int intervall_ms =  50; // min, time between two draw events-
+              if (delta < intervall_ms || noWaits >= 10)
                 {
-                  Threads.wait(this, delta < 50 ? 50-delta : 50, 0);
+                  Threads.wait(this, delta < intervall_ms ? intervall_ms-delta : intervall_ms, 0);
                   noWaits = 0;
                 }
               else
