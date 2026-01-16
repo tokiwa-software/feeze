@@ -426,13 +426,13 @@ class SchedulingPanorama extends Panorama
   double threadYDelta(int i, Rectangle r)
   {
     var t = _data._threads.get(i);
-    int al = actionAt(t, r.x);
-    int ar = actionAt(t, r.x+r.width);
+    var il = t._at[actionAt(t, r.x        )];
+    var ir = t._at[actionAt(t, r.x+r.width)];
     double f = 0;
-    if (al == ar && t != _data.newThreadAt(al))
+    if (il == ir && t != _data.newThreadAt(il))
       {
-        int xl = index_to_posx(t._at[al]);
-        int xr = index_to_posx(t._at[ar]);
+        int xl = index_to_posx(il);
+        int xr = index_to_posx(ir);
         int dl = xl < r.x         ? r.x-xl         : 0;
         int dr = xr > r.x+r.width ? xr-r.x-r.width : 0;
         double fl, fr;
@@ -497,14 +497,19 @@ class SchedulingPanorama extends Panorama
   {
     var al = 0;
     var ar = t._num_actions-1;
+    int res = 0;
     while (al < ar)
       {
         int am = (al+ar)/2;
-        var nm = _data.nanos(t._at[am]) - _data.nanosMin();
-        if (nanos_to_posx(nm) <= x) { al = am+1; }
-        if (nanos_to_posx(nm) >= x) { ar = am-1; }
+        var mx = nanos_to_posx(_data.nanos(t._at[am]) - _data.nanosMin());
+        if (mx <= x) { res = am; al = am+1; }
+        if (mx >= x) {           ar = am-1; }
       }
-    return Math.max(al-1, 0);
+    while (res < t._num_actions-1 && (nanos_to_posx(_data.nanos(t._at[res+1]) - _data.nanosMin()) <= x))
+      {
+        res++;
+      }
+    return res;
   }
 
 
