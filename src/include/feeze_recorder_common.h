@@ -48,6 +48,8 @@ struct event
   int new_pri;
   char	comm[16 /* TASK_COMM_LEN */];
   __u64 ns;
+
+  int count;  // event count to detect missing events and ensure corect ordering
 };
 
 #endif /* __FEEZE_RECORDER_COMMON_H */

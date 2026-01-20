@@ -42,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.TreeMap;
 
 /*---------------------------------------------------------------------*/
@@ -158,6 +159,10 @@ public class Feeze implements Offsets
   {
     return b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NS_OFFSET);
   }
+  static int count(int at)
+  {
+    return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_COUNT_OFFSET);
+  }
 
 }
 
@@ -259,6 +264,14 @@ class SystemThread
       }
     _at[_num_actions] = at;
     _num_actions++;
+    // fix order to be strictly increasing nanos. This might have gotten mixed
+    // up due to race conditions writing to ring buffers.
+    var n = _num_actions-1;
+    while (n > 0 && (_data.nanos(_at[n]) - _data.nanos(_at[n-1]) < 0))
+      {
+        var x = _at[n]; _at[n] = _at[n-1]; _at[n-1] = x;
+        n--;
+      }
   }
 
   public String toString(int ai)
@@ -316,6 +329,8 @@ class Data implements Offsets
 
   TreeMap<Integer, SystemThread> _threadsMap = new TreeMap<>();
   ArrayList<SystemThread> _threads = new ArrayList<>();
+
+  ArrayList<Integer> _gaps = new ArrayList<>();
 
   Data(MappedByteBuffer b)
   {
@@ -408,8 +423,36 @@ class Data implements Offsets
     switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH: return Feeze.ns(at);
-      default: throw new Error("No nanos available for kind "+at);
+      default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
       }
+  }
+
+  BitSet _hasCount = new BitSet();
+
+  int count(int at)
+  {
+    switch (kind(at))
+      {
+      case ENTRY_KIND_SCHED_SWITCH:
+        var c = Feeze.count(at);
+        _hasCount.set(c);
+        return c;
+      default: throw new Error("No count available for kind "+kind(at)+" at "+at);
+      }
+  }
+
+  boolean hasCount(int c)
+  {
+    return _hasCount.get(c);
+  }
+
+  boolean isGap(int at)
+  {
+    return switch (kind(at))
+      {
+      case ENTRY_KIND_SCHED_SWITCH -> at>0 && count(at)>0 && hasCount(count(at)) && !hasCount(count(at)-1);
+      default -> false;
+      };
   }
 
   byte getByte(int at, int off)
@@ -476,6 +519,7 @@ class Data implements Offsets
                 }
               case ENTRY_KIND_SCHED_SWITCH:
                 {
+                  var ignore = count(names_processed);
                   var old = name(names_processed, true);
                   var nju = name(names_processed, false);
                   var ot = thread(names_processed, true);
@@ -501,6 +545,13 @@ class Data implements Offsets
     for (var n = 0; n < _threads.size(); n++)
       {
         _threads.get(n)._num = n;
+      }
+    for (var i = 0; i<names_processed; i++)
+      {
+        if (isGap(i))
+          {
+            _gaps.add(i);
+          }
       }
   }
 

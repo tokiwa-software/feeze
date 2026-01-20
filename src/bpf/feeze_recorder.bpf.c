@@ -51,6 +51,11 @@ struct {
 } rb SEC(".maps");
 
 
+/**
+ * Event counter used to detect ringbuf overflows
+ */
+uint64_t count = 0;
+
 SEC("tracepoint/sched/sched_switch")
 int on_task_switch(struct trace_event_raw_sched_switch *ctx)
 {
@@ -98,7 +103,15 @@ int on_task_switch(struct trace_event_raw_sched_switch *ctx)
            e->comm[14] = ctx->next_comm[14];
            e->comm[15] = ctx->next_comm[15];
            e->ns = bpf_ktime_get_ns();
-           bpf_ringbuf_output(&rb, e, sizeof(*e), 0);
+           e->count = __sync_fetch_and_add(&count, 1);
+           if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)
+             {
+               // ok
+             }
+           else
+             {
+               // error
+             }
          }
      }
 

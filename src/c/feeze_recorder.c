@@ -91,12 +91,13 @@ struct thread_payload
 struct sched_switch_payload
 {
   pid_t old_tid;
-  int old_pri;
+  //  int old_pri;
   char	old_name[16 /* TASK_COMM_LEN */];
   pid_t new_tid;
-  int new_pri;
+  //  int new_pri;
   char	new_name[16 /* TASK_COMM_LEN */];
   uint64_t ns;
+  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
 
 struct entry
@@ -192,10 +193,10 @@ void post_entry(struct entry *e)
           uint64_t n = eventcount; //  & ~((uint64_t) 0x3f);
           if ((n & (n-1))==0)
             {
-              printf("thread switch %lu: %d/%d (%s) -> %d/%d (%s) at %luns\n",
+              printf("thread switch %lu: %d (%s) -> %d (%s) at %luns\n",
                      eventcount,
-                     e->payload.ss.old_tid, e->payload.ss.old_pri, e->payload.ss.old_name,
-                     e->payload.ss.new_tid, e->payload.ss.new_pri, e->payload.ss.new_name,
+                     e->payload.ss.old_tid, e->payload.ss.old_name,
+                     e->payload.ss.new_tid, e->payload.ss.new_name,
                      e->payload.ss.ns);
             }
         }
@@ -398,12 +399,13 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           struct entry en;
           en.kind = ENTRY_KIND_SCHED_SWITCH;
           en.payload.ss.old_tid = e->old_pid;
-          en.payload.ss.old_pri = e->old_pri;
+          // en.payload.ss.old_pri = e->old_pri;
           memcpy(&en.payload.ss.old_name, &e->old_name, sizeof(en.payload.ss.old_name));
           en.payload.ss.new_tid = e->new_pid;
-          en.payload.ss.new_pri = e->new_pri;
+          // en.payload.ss.new_pri = e->new_pri;
           memcpy(&en.payload.ss.new_name, &e->comm, sizeof(en.payload.ss.new_name));
           en.payload.ss.ns = e->ns;
+          en.payload.ss.count = e->count;
           post_entry(&en);
         }
     }

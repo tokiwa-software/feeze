@@ -40,12 +40,13 @@ public interface Offsets
   public static int ENTRY_KIND_OFFSET        = 0x00;
 
   public static int ENTRY_SS_OLD_PID_OFFSET  = 0x08;
-  public static int ENTRY_SS_OLD_PRI_OFFSET  = 0x0c;
-  public static int ENTRY_SS_OLD_NAME_OFFSET = 0x10;
-  public static int ENTRY_SS_NEW_PID_OFFSET  = 0x20;
-  public static int ENTRY_SS_NEW_PRI_OFFSET  = 0x24;
-  public static int ENTRY_SS_NEW_NAME_OFFSET = 0x28;
-  public static int ENTRY_SS_NS_OFFSET       = 0x38;
+  //  public static int ENTRY_SS_OLD_PRI_OFFSET  = 0x0c;
+  public static int ENTRY_SS_OLD_NAME_OFFSET = 0x0c;
+  public static int ENTRY_SS_NEW_PID_OFFSET  = 0x1c;
+  //  public static int ENTRY_SS_NEW_PRI_OFFSET  = 0x20;
+  public static int ENTRY_SS_NEW_NAME_OFFSET = 0x29;
+  public static int ENTRY_SS_NS_OFFSET       = 0x30;
+  public static int ENTRY_SS_COUNT_OFFSET    = 0x38;
 
   public static int ENTRY_P_PID_OFFSET       = 0x08;
   public static int ENTRY_P_NAME_OFFSET      = 0x0c;

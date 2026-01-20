@@ -33,6 +33,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 
+import java.util.TreeSet;
+
 import javax.swing.JButton;
 
 import dev.flang.swing.Panorama;
@@ -514,6 +516,29 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * For a given x position, find the next gap index left of that position.
+   */
+  int gapAt(int x)
+  {
+    var al = 0;
+    var ar = _data._gaps.size()-1;
+    int res = 0;
+    while (al < ar)
+      {
+        int am = (al+ar)/2;
+        var mx = nanos_to_posx(_data.nanos(_data._gaps.get(am)) - _data.nanosMin());
+        if (mx <= x) { res = am; al = am+1; }
+        if (mx >= x) {           ar = am-1; }
+      }
+    while (res < _data._gaps.size()-1 && (nanos_to_posx(_data.nanos(_data._gaps.get(res+1)) - _data.nanosMin()) <= x))
+      {
+        res++;
+      }
+    return res;
+  }
+
+
+  /**
    * paintPanorama
    *
    * @param g
@@ -555,6 +580,7 @@ class SchedulingPanorama extends Panorama
 
                 int blurredUpToX = -1;
                 int from_a = actionAt(t, r.x);
+                int to_a = actionAt(t, r.x+r.width)+1;
                 int NAME_DIST_X = 384;
                 long NAME_DIST_NS = 1;
                 while (compress_x(NAME_DIST_NS) < NAME_DIST_X)
@@ -571,7 +597,7 @@ class SchedulingPanorama extends Panorama
                     nameShownAtNS += NAME_DIST_NS;
                     nameShownAt = nanos_to_posx(nameShownAtNS);
                   }
-                for (var a = from_a; a<t._num_actions; a++)
+                for (var a = from_a; a<to_a; a++)
                   {
                     var a0 = a;
                     var at = t._at[a];
@@ -595,8 +621,7 @@ class SchedulingPanorama extends Panorama
                     var nl = _data.nanos(at)-_data.nanosMin();
                     var nr = (a+1 >= t._num_actions ? _data.nanosMax()
                                                     : _data.nanos(t._at[a+1])) -_data.nanosMin();
-                    if (false &&
-                        nl > nr)
+                    if (nl > nr)
                       {
                         System.out.println("**** events not monotonic: "+nl+" > "+nr+" delta: "+(nl-nr)+"ns for a="+a+" (max "+t._num_actions+") at "+at+"/"+
                                            (a+1 >= t._num_actions ? -1 : t._at[a+1]));
@@ -657,6 +682,26 @@ class SchedulingPanorama extends Panorama
                             _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()));
                           }
                       }
+                  }
+              }
+            var from_gap = Math.max(0,gapAt(r.x)-1);
+            var to_gap   = Math.min(_data._gaps.size()-1, gapAt(r.x+r.width)+1);
+            for(var a = from_gap; a <= to_gap; a++)
+              {
+                var ar = _data._gaps.get(a);
+                var al = ar-1;
+                var xmin = nanos_to_posx(al >= 0 ? _data.nanos(al) - _data.nanosMin() : 0);
+                var xmax = nanos_to_posx(          _data.nanos(ar) - _data.nanosMin()    );
+                if (xmax >= r.x && xmin <= r.x+r.width)
+                  {
+                    g.setColor(new Color(255,0,100,63));
+                    var y0 = threadY(0                      ) - zoom(NORMAL_THREAD_SPACING);
+                    var y1 = threadY(_data._threads.size()-1) + zoom(NORMAL_THREAD_SPACING);
+                    while (al >= 0 && _data.kind(al) != Offsets.ENTRY_KIND_SCHED_SWITCH)
+                      {
+                        al--;
+                      }
+                    g.fillRect(xmin,y0,xmax-xmin+1,y1-y0+1);
                   }
               }
           }
