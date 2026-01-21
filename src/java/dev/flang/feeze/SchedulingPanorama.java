@@ -818,6 +818,9 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  /*---------------------------------------------------------------------*/
+
+
   /**
    * Top ruler that draws the scale.
    */
@@ -844,13 +847,78 @@ class SchedulingPanorama extends Panorama
     protected void paintComponent(Graphics g)
     {
       var r = g.getClipBounds();
-      g.setColor(new Color(255, 255, 127));  // bright yellow background
+      g.setColor(new Color(255, 255, 192));  // bright yellow background
       g.fillRect(r.x, r.y, r.width, r.height);
 
       SchedulingPanorama.this.drawScale(g,
                                         SchedulingPanorama.this.getVisibleRect(),
                                         64,
                                         false);
+    }
+  }
+
+
+  /*---------------------------------------------------------------------*/
+
+
+  /**
+   * Left ruler that draws the thread names
+   */
+  ThreadNames _leftRuler = new ThreadNames();
+
+
+  @Override
+  public JComponent leftRuler()
+  {
+    return _leftRuler;
+  }
+
+  /**
+   * Component to draw thread names as left ruler.
+   */
+  public class ThreadNames extends JComponent
+  {
+
+    public ThreadNames()
+    {
+      setPreferredSize(new java.awt.Dimension(_zoom.STANDARD_FONT_SIZE*10, 1));
+    }
+
+    protected void paintComponent(Graphics g)
+    {
+      var pr = SchedulingPanorama.this.getVisibleRect();
+      var background = new Color(192, 192, 255); // bright blue background
+      var backgroundave = (background.getRed() + background.getGreen() + background.getBlue())/3;
+      var backgroundfactor = 32;
+      var r = g.getClipBounds();
+      g.setColor(background);
+      g.fillRect(r.x, r.y, r.width, r.height);
+      g.setColor(gray);
+      g.drawLine(r.x+r.width-1, r.y,
+                 r.x+r.width-1, r.y+r.height);
+
+      for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < _data._threads.size(); i++)
+        {
+          var t = _data._threads.get(i);
+          var y = threadY(i);
+          int h = threadY(i+1)-y+1;
+          var cp = PROCESS_COLS[t._p._num % PROCESS_COLS.length];
+          var c = new Color(Math.min(255, Math.max(0, cp.getRed  () + (background.getRed()   - backgroundave)*backgroundfactor/256)),
+                            Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
+                            Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));
+          g.setColor(c);
+          g.fillRect(r.x, y-h/2, r.x+r.width-1, y+h/2);
+          var from_a = actionAt(t, pr.x);
+
+          if (_threadShown[i])
+            {
+              g.setColor(gray);
+              g.setFont(_zoom.standardFont());
+              _zoom.drawStringR(g, t.toString(from_a), r.x+r.width-3, y - zoom(2));
+            }
+          g.setColor(gray);
+          _zoom.drawHLine(g,1,r.x,y,r.x+r.width);
+        }
     }
   }
 

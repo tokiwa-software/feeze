@@ -274,10 +274,16 @@ public abstract class Panorama extends JPanel
         var sz = tr.getPreferredSize();
         tr.setPreferredSize(new Dimension(_width, sz.height));
       }
+    var lr  = leftRuler();
+    if (lr != null)
+      {
+        var sz = lr.getPreferredSize();
+        lr.setPreferredSize(new Dimension(sz.width, _height));
+      }
     setBounds(posx, posy, _width, _height);
 
-    revalidate();
-    repaint();
+    // revalidate();
+    //    repaint();
   }
 
 
@@ -304,10 +310,21 @@ public abstract class Panorama extends JPanel
 
   /**
    * Optional top ruler to draw on top of the panorama. If not null, this will
-   * see its preferred with updated along with the width updates of the data
+   * see its preferred width updated along with the width updates of the data
    * area.
    */
   public JComponent topRuler()
+  {
+    return null;
+  }
+
+
+  /**
+   * Optional left ruler to draw on left of the panorama. If not null, this will
+   * see its preferred height updated along with the height updates of the data
+   * area.
+   */
+  public JComponent leftRuler()
   {
     return null;
   }
@@ -339,6 +356,11 @@ public abstract class Panorama extends JPanel
     if (tr != null)
       {
         res.setColumnHeaderView(tr);
+      }
+    var lr = leftRuler();
+    if (lr != null)
+      {
+        res.setRowHeaderView(lr);
       }
 
     adjustPos(0, MIN_FRAME_HEIGHT);

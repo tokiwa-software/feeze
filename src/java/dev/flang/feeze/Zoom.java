@@ -263,4 +263,27 @@ class Zoom
   }
 
 
+
+  /**
+   * drawString draws a given string
+   *
+   * @param g graphics environment
+   *
+   * @param str the string
+   *
+   * @param x the zoomed (!) x coordinate
+   *
+   * @param < the zoomed (!) y coordinate
+   */
+  void drawStringR(Graphics g,
+                   String str,
+                   int x,
+                   int y)
+  {
+    g.setFont(standardFont());
+    var fm = g.getFontMetrics();
+    g.drawString(str,x-fm.stringWidth(str),y);
+  }
+
+
 }
