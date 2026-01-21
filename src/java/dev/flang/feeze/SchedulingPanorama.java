@@ -36,6 +36,7 @@ import java.awt.Rectangle;
 import java.util.TreeSet;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
 
 import dev.flang.swing.Panorama;
 
@@ -814,6 +815,43 @@ class SchedulingPanorama extends Panorama
             y -= fm.getHeight()*7/8;
           }
       }
+  }
+
+
+  /**
+   * Top ruler that draws the scale.
+   */
+  Scala _topRuler = new Scala();
+
+
+  @Override
+  public JComponent topRuler()
+  {
+    return _topRuler;
+  }
+
+  /**
+   * Component to draw scala as top ruler.
+   */
+  public class Scala extends JComponent
+  {
+
+    public Scala()
+    {
+      setPreferredSize(new java.awt.Dimension(1, _zoom.STANDARD_FONT_SIZE*7/8*5+16));
+    }
+
+    protected void paintComponent(Graphics g)
+    {
+      var r = g.getClipBounds();
+      g.setColor(new Color(255, 255, 127));  // bright yellow background
+      g.fillRect(r.x, r.y, r.width, r.height);
+
+      SchedulingPanorama.this.drawScale(g,
+                                        SchedulingPanorama.this.getVisibleRect(),
+                                        64,
+                                        false);
+    }
   }
 
 

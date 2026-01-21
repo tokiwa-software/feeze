@@ -203,6 +203,9 @@ class Zoom
   }
 
 
+  static final int STANDARD_FONT_SIZE = 12;
+
+
   /**
    * the standard fron
    *
@@ -210,7 +213,7 @@ class Zoom
    */
   Font standardFont()
   {
-    return font(12);
+    return font(STANDARD_FONT_SIZE);
   }
 
 

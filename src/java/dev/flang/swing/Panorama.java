@@ -34,6 +34,7 @@ import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
@@ -267,6 +268,12 @@ public abstract class Panorama extends JPanel
     _height  = _frameT + h + _frameB;
 
     setPreferredSize(new Dimension(_width, _height));
+    var tr  = topRuler();
+    if (tr != null)
+      {
+        var sz = tr.getPreferredSize();
+        tr.setPreferredSize(new Dimension(_width, sz.height));
+      }
     setBounds(posx, posy, _width, _height);
 
     revalidate();
@@ -296,6 +303,17 @@ public abstract class Panorama extends JPanel
 
 
   /**
+   * Optional top ruler to draw on top of the panorama. If not null, this will
+   * see its preferred with updated along with the width updates of the data
+   * area.
+   */
+  public JComponent topRuler()
+  {
+    return null;
+  }
+
+
+  /**
    * Obtain a reference to a JScrollerPane that contains this Panorama.  This
    * scroller pane has to be added to the surrounding component.
    *
@@ -316,6 +334,12 @@ public abstract class Panorama extends JPanel
     // updated dynamically on a window resize event.
     res.getVerticalScrollBar  ().setUnitIncrement(64);
     res.getHorizontalScrollBar().setUnitIncrement(64);
+
+    var tr = topRuler();
+    if (tr != null)
+      {
+        res.setColumnHeaderView(tr);
+      }
 
     adjustPos(0, MIN_FRAME_HEIGHT);
     _viewport = res.getViewport();
