@@ -333,7 +333,16 @@ class SchedulingPanorama extends Panorama
    */
   public int dataHeight()
   {
-    return zoom(NORMAL_THREAD_SPACING*(_data._threads.size()+3));
+    return zoom(NORMAL_THREAD_SPACING*(numThreads()+3));
+  }
+
+
+  /**
+   * number of threads
+   */
+  public int numThreads()
+  {
+    return _data._threads.size();
   }
 
 
@@ -343,7 +352,7 @@ class SchedulingPanorama extends Panorama
   /**
    * zoomed y coordinate of thread with given index.
    *
-   * @param t a thread index, may be >=_data._threads.size()
+   * @param t a thread index, may be >=numThreads()
    *
    * @return the y coordinate of the horizontal line for this thread
    */
@@ -361,10 +370,10 @@ class SchedulingPanorama extends Panorama
     if (_lastThreadSpacing != ts || _lastPixelsPerNano != pixelsPerNano() ||
         _lastX != r.x || _lastW != r.width)
       {
-        _threadY = new int[_data._threads.size()];
-        _threadShown = new boolean[_data._threads.size()];
+        _threadY     = new int    [numThreads()];
+        _threadShown = new boolean[numThreads()];
         double y = ts;
-        for (var i = 0; i<_data._threads.size(); i++)
+        for (var i = 0; i<numThreads(); i++)
           {
             var yd = threadYDelta(i, r);
             y = y + yd/2;
@@ -434,7 +443,7 @@ class SchedulingPanorama extends Panorama
       {
         f = 0;
         int j = i;
-        while (j < _data._threads.size() && _data._threads.get(j)._pid == t._tid)
+        while (j < numThreads() && _data._threads.get(j)._pid == t._tid)
           {
             f = Math.max(f, blendInFactor(_data._threads.get(j), r));
             j++;
@@ -487,15 +496,15 @@ class SchedulingPanorama extends Panorama
 
 
   /**
-   * Return the thread a the given y posisition. Returns 0 if y is above all
-   * threads and _data.threads.size()-1 if it is below all threads.
+   * Return the thread at the given y posisition.  Returns 0 if y is above all
+   * threads and numThreads() if it is below all threads.
    *
    * @param y an actual y corrdinate.
    */
   int threadAt(int y)
   {
     var res = 0;
-    while (res < _data._threads.size()-1 && y > threadY(res))
+    while (res < numThreads()-1 && y > threadY(res))
       {
         res++;
       }
@@ -573,7 +582,7 @@ class SchedulingPanorama extends Panorama
             int w = 1;
             long x0 = _data.nanosMin();
             long xn = _data.nanosMax();
-            for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < _data._threads.size(); i++)
+            for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
               {
                 int drawCnt = 0;
                 int drawCnt2 = 0;
@@ -709,8 +718,8 @@ class SchedulingPanorama extends Panorama
                 if (xmax >= r.x && xmin <= r.x+r.width)
                   {
                     g.setColor(new Color(255,0,100,63));
-                    var y0 = threadY(0                      ) - zoom(NORMAL_THREAD_SPACING);
-                    var y1 = threadY(_data._threads.size()-1) + zoom(NORMAL_THREAD_SPACING);
+                    var y0 = threadY(0             ) - zoom(NORMAL_THREAD_SPACING);
+                    var y1 = threadY(numThreads()-1) + zoom(NORMAL_THREAD_SPACING);
                     while (al >= 0 && _data.kind(al) != Offsets.ENTRY_KIND_SCHED_SWITCH)
                       {
                         al--;
@@ -910,7 +919,7 @@ class SchedulingPanorama extends Panorama
       g.drawLine(r.x+r.width-1, r.y,
                  r.x+r.width-1, r.y+r.height);
 
-      for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < _data._threads.size(); i++)
+      for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
         {
           var t = _data._threads.get(i);
           var y = threadY(i);
