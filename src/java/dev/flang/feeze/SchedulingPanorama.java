@@ -429,47 +429,60 @@ class SchedulingPanorama extends Panorama
   double threadYDelta(int i, Rectangle r)
   {
     var t = _data._threads.get(i);
-    var il = t._at[actionAt(t, r.x        )];
-    var ir = t._at[actionAt(t, r.x+r.width)];
-    double f = 0;
-    if (il == ir && t != _data.newThreadAt(il))
+    double f = 1.0;
+    if (t._tid == t._pid) // new process, so display it if any of its threads are shown
+      {
+        f = 0;
+        int j = i;
+        while (j < _data._threads.size() && _data._threads.get(j)._pid == t._tid)
+          {
+            f = Math.max(f, blendInFactor(_data._threads.get(j), r));
+            j++;
+          }
+      }
+    else
+      {
+        f = blendInFactor(t, r);
+      }
+    _threadShown[i] = f==1;
+    return
+      (1-f) * zoom((double) MIN_THREAD_SPACING) +
+      (  f) * zoom((double) NORMAL_THREAD_SPACING);
+  }
+
+
+  /**
+   * For a given thread t, check if there are any relevant events shown in
+   * visible rectangle r.  If so, return 1, otherwise, return a factor between 0
+   * and 1 that corresponds to the distance the last event has to the visible
+   * area.
+   */
+  double blendInFactor(SystemThread t, Rectangle r)
+  {
+    var til = actionAt(t, r.x        );
+    var tim = actionAt(t, r.x+r.width);
+    var tir = Math.min(t._num_actions-1, tim+1);
+    var il = t._at[til];   // index of action left  of r.x
+    var im = t._at[tim];   // index of action left  of r.x+r.width
+    var ir = t._at[tir];   // index of action right of r.x+r.width
+    double f = 1;
+    if (il == im &&                      // no action within visible area
+        (index_to_posx(il) >= r.x   ||
+         _data.newThreadAt(il) != t   )  // and t is not running
+        )
       {
         int xl = index_to_posx(il);
         int xr = index_to_posx(ir);
-        int dl = xl < r.x         ? r.x-xl         : 0;
-        int dr = xr > r.x+r.width ? xr-r.x-r.width : 0;
-        double fl, fr;
-        int transition = r.width/2;
-        if (xl < r.x)
-          {
-            fl = (double) Math.min(transition,r.x-xl) / transition;
-          }
-        else if (xl <= r.x+r.width)
-          {
-            fl = 0;
-          }
-        else
-          {
-            fl = 1;
-          }
-        if (xr > r.x+r.width)
-          {
-            fr = (double) Math.min(transition,xr-r.x-r.width) / transition;
-          }
-        else if (xr >= r.x)
-          {
-            fr = 0;
-          }
-        else
-          {
-            fr = 1;
-          }
-        f = Math.min(fl,fr);
+        int transition = r.width/2;  // width of the transition area during which we zoom threads in or out
+        var fl = xl <  r.x         ? (double) Math.max(0, transition - (r.x-xl)) / transition :
+                 xl <= r.x+r.width ? 1
+                                   : 0;
+        var fr = xr >  r.x+r.width ? (double) Math.max(0, transition - (xr-r.x-r.width)) / transition :
+                 xr >= r.x         ? 1
+                                   : 0;
+        f = Math.max(fl,fr);
       }
-    _threadShown[i] = f==0;
-    return
-      (  f) * zoom((double) MIN_THREAD_SPACING) +
-      (1-f) * zoom((double) NORMAL_THREAD_SPACING);
+    return f;
   }
 
 
