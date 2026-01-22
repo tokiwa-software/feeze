@@ -245,42 +245,60 @@ public abstract class Panorama extends JPanel
    *
    * @param posy desired y pos of top side of the data area.
    */
-  public void adjustPos(int posx, int posy)
+  public void adjustPosX(int posx)
   {
     var r = getVisibleRect();
     var w = dataWidth();
-    var h = dataHeight();
 
     var fw = (int) (r.width  * FRAME_SIZE_PERCENTAGE);
-    var fh = (int) (r.height * FRAME_SIZE_PERCENTAGE);
 
     // make frame large enough to cover r:
     var fW = (r.width  - w) / 2;
-    var fH = (r.height - h) / 2;
     _frameL = max(MIN_FRAME_WIDTH , fw, posx   , fW);
     _frameR = max(MIN_FRAME_WIDTH , fw, fW-posx, fW);
-    _frameT = max(MIN_FRAME_HEIGHT, fh, posy   , fH);
-    _frameB = max(MIN_FRAME_HEIGHT, fh, fH-posy, fH);
 
     posx    -= _frameL;
-    posy    -= _frameT;
     _width   = _frameL + w + _frameR;
-    _height  = _frameT + h + _frameB;
 
     setPreferredSize(new Dimension(_width, _height));
+    var rb = getBounds();
+    setBounds(posx, rb.y, _width, rb.height);
     var tr  = topRuler();
     if (tr != null)
       {
         var sz = tr.getPreferredSize();
         tr.setPreferredSize(new Dimension(_width, sz.height));
       }
+  }
+  public void adjustPosY(int posy)
+  {
+    var r = getVisibleRect();
+    var h = dataHeight();
+
+    var fh = (int) (r.height * FRAME_SIZE_PERCENTAGE);
+
+    // make frame large enough to cover r:
+    var fH = (r.height - h) / 2;
+    _frameT = max(MIN_FRAME_HEIGHT, fh, posy   , fH);
+    _frameB = max(MIN_FRAME_HEIGHT, fh, fH-posy, fH);
+
+    posy    -= _frameT;
+    _height  = _frameT + h + _frameB;
+
+    setPreferredSize(new Dimension(_width, _height));
+    var rb = getBounds();
+    setBounds(rb.x, posy, rb.width, _height);
     var lr  = leftRuler();
     if (lr != null)
       {
         var sz = lr.getPreferredSize();
         lr.setPreferredSize(new Dimension(sz.width, _height));
       }
-    setBounds(posx, posy, _width, _height);
+  }
+  public void adjustPos(int posx, int posy)
+  {
+    adjustPosX(posx);
+    adjustPosY(posy);
 
     // revalidate();
     //    repaint();
@@ -363,7 +381,7 @@ public abstract class Panorama extends JPanel
         res.setRowHeaderView(lr);
       }
 
-    adjustPos(0, MIN_FRAME_HEIGHT);
+    adjustPos(0, MIN_FRAME_HEIGHT);  // NYI: This results in a vertical jump on compress/zoom if height is small, need to check what posy is better here.
     _viewport = res.getViewport();
     return res;
   }
@@ -432,8 +450,10 @@ public abstract class Panorama extends JPanel
    */
   public void recallPos()
   {
-    adjustPos(midScreenPosX_ - recallX(),
-              midScreenPosY_ - recallY());
+    // NYI: This currently requires to be done in order since feeze`s
+    // SchedulingPanorama needs x to be set to recall the corresponding y.
+    adjustPosX(midScreenPosX_ - recallX());
+    adjustPosY(midScreenPosY_ - recallY());
   }
 
 

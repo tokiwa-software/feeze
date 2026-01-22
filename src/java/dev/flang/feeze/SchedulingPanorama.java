@@ -412,18 +412,27 @@ class SchedulingPanorama extends Panorama
   }
 
   /**
-   * Get the y position corresponding to the result `t` that was obtained using
-   * `posy_to_thread`, i.e., after adjusting scaling factors, get the new y position.
+   * Get the zoomed (but not translated) y position corresponding to the result
+   * `t` that was obtained using `posy_to_thread`, i.e., after adjusting scaling
+   * factors, get the new y position.
    */
-  int thread_to_posy(double t)
+  int thread_to_zoom_y(double t)
   {
     var ignore = threadY0(0);  // just interested in side effect of updating _threadY
     var ti = Math.min(Math.max(0, (int) t), _threadY.length-1);
     var ty = _threadY[ti];
     var delta = ti+1 < _threadY.length ? _threadY[ti+1]-ty : zoom((double) NORMAL_THREAD_SPACING);
-    var res = (int) (ty + (t-ti) * delta);
-    res = res + topFrame();
-    return res;
+    return (int) (ty + (t-ti) * delta);
+  }
+
+
+  /**
+   * Get the y position corresponding to the result `t` that was obtained using
+   * `posy_to_thread`, i.e., after adjusting scaling factors, get the new y position.
+   */
+  int thread_to_posy(double t)
+  {
+    return thread_to_zoom_y(t) + topFrame();
   }
 
 
@@ -1048,8 +1057,10 @@ class SchedulingPanorama extends Panorama
 
   @Override
   public int recallY()
-  {
-    return thread_to_posy(_rememberedMiddleThread) - topFrame();
+  { // NYI: CLEANUP: rememberPosForScaling receives translated posx/posy, while
+    // recallX/recallY returns untranslated x/y posisiton. This should better
+    // both be the same!
+    return thread_to_zoom_y(_rememberedMiddleThread);
   }
 
 }
