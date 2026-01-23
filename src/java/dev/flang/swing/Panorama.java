@@ -121,37 +121,37 @@ public abstract class Panorama extends JPanel
 
 
   /**
-   * width of scrollable panorama area.  Set by adjustPos().
+   * width of scrollable panorama area.  Set by adjustPosX()/adjustPosY().
    */
   private int _width = -1;
 
 
   /**
-   * height of scrollable panorama area.  Set by adjustPos().
+   * height of scrollable panorama area.  Set by adjustPosX()/adjustPosY().
    */
   private int _height = -1;
 
 
   /**
-   * width of left frame around data area.  Set by adjustPos().
+   * width of left frame around data area.  Set by adjustPosX()/adjustPosY().
    */
   private int _frameL = 0;
 
 
   /**
-   * width of right frame around data area.  Set by adjustPos().
+   * width of right frame around data area.  Set by adjustPosX()/adjustPosY().
    */
   private int _frameR = 0;
 
 
   /**
-   * height of top frame around of data area.  Set by adjustPos().
+   * height of top frame around of data area.  Set by adjustPosX()/adjustPosY().
    */
   private int _frameT = 0;
 
 
   /**
-   * height of bottom frame around of data area.  Set by adjustPos().
+   * height of bottom frame around of data area.  Set by adjustPosX()/adjustPosY().
    */
   private int _frameB = 0;
 
@@ -295,14 +295,6 @@ public abstract class Panorama extends JPanel
         lr.setPreferredSize(new Dimension(sz.width, _height));
       }
   }
-  public void adjustPos(int posx, int posy)
-  {
-    adjustPosX(posx);
-    adjustPosY(posy);
-
-    // revalidate();
-    //    repaint();
-  }
 
 
   /**
@@ -381,7 +373,8 @@ public abstract class Panorama extends JPanel
         res.setRowHeaderView(lr);
       }
 
-    adjustPos(0, MIN_FRAME_HEIGHT);  // NYI: This results in a vertical jump on compress/zoom if height is small, need to check what posy is better here.
+    adjustPosX(0);
+    adjustPosY(MIN_FRAME_HEIGHT);  // NYI: This results in a vertical jump on compress/zoom if height is small, need to check what posy is better here.
     _viewport = res.getViewport();
     return res;
   }
@@ -445,15 +438,21 @@ public abstract class Panorama extends JPanel
 
 
   /**
-   * recallPos calls adjustPos() with recalculated position from rememberPosForScaling
+   * recallPos calls adjustPosX()/adjustPosY() with recalculated position from rememberPosForScaling
    * and recallX/recallY.
    */
   public void recallPos()
   {
-    // NYI: This currently requires to be done in order since feeze`s
+    var rb = getBounds();
+    // NYI: This currently requires to be done in order x then y since feeze`s
     // SchedulingPanorama needs x to be set to recall the corresponding y.
     adjustPosX(midScreenPosX_ - recallX());
     adjustPosY(midScreenPosY_ - recallY());
+    var l = _listener;
+    if (l != null && rb.equals(getBounds()))
+      { // no change, so there will be no repaint, so we signal explicitly that we are done.
+        l.paintDone();
+      }
   }
 
 
