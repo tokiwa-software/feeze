@@ -50,10 +50,6 @@ class Data implements Offsets
   final MappedByteBuffer _b;
   int names_processed = 0;
 
-  TreeMap<Name,Name> _namesMap = new TreeMap<>();
-
-  ArrayList<Name> _namesList = new ArrayList<>();
-
   TreeMap<Integer, SystemProcess> _processesMap = new TreeMap<>();
   ArrayList<SystemProcess> _processes = new ArrayList<>();
 
@@ -72,20 +68,6 @@ class Data implements Offsets
     return Feeze.kind(at);
   }
 
-  Name name(int at, boolean old)
-  {
-    var n = new Name(at, false);
-    var e = _namesMap.get(n);
-    if (e == null)
-      {
-        e = n;
-        _namesMap.put(n, n);
-        _namesList.add(n);
-        //System.out.println("NEW NAME: "+n);
-      }
-    return e;
-  }
-
   SystemThread thread(int at, boolean old)
   {
     var tpid = old ? Feeze.old_pid(at)
@@ -98,15 +80,6 @@ class Data implements Offsets
     return names_processed;
   }
 
-  Name oldAt(int at)
-  {
-    return name(at, true);
-  }
-
-  Name newAt(int at)
-  {
-    return name(at, false);
-  }
 
   SystemThread oldThreadAt(int at)
   {
@@ -249,8 +222,6 @@ class Data implements Offsets
               case ENTRY_KIND_SCHED_SWITCH:
                 {
                   var ignore = count(names_processed);
-                  var old = name(names_processed, true);
-                  var nju = name(names_processed, false);
                   var ot = thread(names_processed, true);
                   var nt = thread(names_processed, false);
                   ot.addAction(names_processed);
