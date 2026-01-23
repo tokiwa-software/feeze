@@ -89,11 +89,11 @@ class SystemThread
     String n;
     if (Feeze.new_pid(at) == _tid)
       {
-        n =  _data.new_name(at);
+        n = _data.new_name(at);
       }
     else
       {
-        n =  _data.old_name(at);
+        n = _data.old_name(at);
       }
     if (_tid == _p._pid && !n.equals(_p._name))
       {
