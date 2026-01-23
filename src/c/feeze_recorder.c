@@ -291,7 +291,7 @@ pid_t get_tgid(pid_t tid)
 
 
 /**
- * Get name of given process fro "/proc/%d/state"
+ * Get name of given process from "/proc/%d/state"
  *
  * @param pid the process id
  *
