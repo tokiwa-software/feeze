@@ -342,7 +342,7 @@ public abstract class Panorama extends JPanel
 
   /**
    * Obtain a reference to a JScrollPane that contains this Panorama.
-   * This scroller pane has to be added to the surrounding component.
+   * This scroll pane has to be added to the surrounding component.
    *
    * @param w the desired width
    *
