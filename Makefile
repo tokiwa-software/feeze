@@ -118,9 +118,23 @@ $(BUILD_DIR)/bin/$(C_MAIN): $(BUILD_DIR)/obj/$(C_MAIN).o $(LIBBPF_OBJ)
 	mkdir -p $(@D)
 	clang -g -Wall $^ -lelf -lz -o $@
 
+# Choose privilege escalation tool
+PKEXEC := $(shell command -v pkexec 2>/dev/null)
+SUDO   := $(shell command -v sudo 2>/dev/null)
+
+ifeq ($(PKEXEC),)
+  ifeq ($(SUDO),)
+    $(error Neither pkexec nor sudo found)
+  else
+    ELEVATE := sudo
+  endif
+else
+  ELEVATE := pkexec
+endif
+
 # run the binary
 run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
-	sudo $(BUILD_DIR)/bin/$(C_MAIN)
+	$(ELEVATE) $(BUILD_DIR)/bin/$(C_MAIN)
 
 $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	mkdir -p $(BUILD_CLASSES)
