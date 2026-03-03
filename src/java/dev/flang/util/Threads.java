@@ -163,27 +163,26 @@ public class Threads
    */
   public static void sleep(long ms, int ns)
   {
-    if (ms > 0 || ms == 0 && ns > 0)
+    var interrupted = getAndClearInterrupted();
+    var done = false;
+    long start = System.currentTimeMillis();
+    while (!done && (ms > 0 || ms == 0 && ns > 0))
       {
-        var interrupted = getAndClearInterrupted();
-        long start = System.currentTimeMillis();
-        var done = false;
-        while (!done)
+        try
           {
-            try
-              {
-                Thread.sleep(ms, ns);
-                done = true;
-              }
-            catch (InterruptedException exception)
-              {
-                interrupted = true;
-                long curTime = System.currentTimeMillis();
-                ms = ms - (curTime - start);
-                start = curTime;
-              }
+            Thread.sleep(ms, ns);
+            done = true;
           }
-        while (ms >= 0);
+        catch (InterruptedException exception)
+          {
+            interrupted = true;
+            long curTime = System.currentTimeMillis();
+            ms = ms - (curTime - start);
+            start = curTime;
+          }
+      }
+    if (interrupted)
+      {
         setInterrupted(interrupted);
       }
   }

@@ -35,6 +35,8 @@ import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 
 import java.nio.file.StandardOpenOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import java.nio.channels.FileChannel;
 
@@ -51,9 +53,15 @@ public class Feeze implements Offsets
 
   static Data _data = null;
 
-  public static final String SHARED_MEM_NAME = "/tmp/feeze_events_recorder_data";
+  public static Path SHARED_MEM_PATH = Path.of("/tmp/feeze_events_recorder_data");
+  public static String SHARED_MEM_NAME = SHARED_MEM_PATH.toString();
+  public static boolean sharedMemExists()
+  {
+    return Files.exists(SHARED_MEM_PATH);
+  }
   public static final long   SHARED_MEM_SIZE = 64*1024*1024;
 
+  public static final String FEEZE_HOME = System.getProperties().getProperty("feeze.home",".");
 
   static MappedByteBuffer b;
 
@@ -61,6 +69,11 @@ public class Feeze implements Offsets
 
 
   public static void main(String[] args)
+  {
+    var c = new ControlFrame();
+  }
+
+  static void showData()
   {
     var done = false;
     while (true)
