@@ -46,7 +46,7 @@ LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-BPFTOOL ?= /usr/lib/linux-tools/6.8.0-87-generic/bpftool
+BPFTOOL ?= /usr/lib/linux-tools/6.8.0-100-generic/bpftool
 
 JAVA_SOURCES := $(shell find $(FEEZE_SRC_JAVA) -name "*.java")
 JAVA_MAIN := Feeze
@@ -140,10 +140,34 @@ $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	mkdir -p $(BUILD_CLASSES)
 	javac -d $(BUILD_CLASSES) $^ && touch $@
 
-run: $(BUILD_DIR)/classes/$(JAVA_MAIN_CLASSFILE)
-	java -cp $(BUILD_CLASSES) $(JAVA_MAIN_CLASS)
+build/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
+	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
+	chmod +x $@
+
+# run the GUI. NYI: to be replaced by fuzion implementation, make taret run_control
+run: build/bin/feeze
+	./$^
+
+$(BUILD_DIR)/feeze.jmod: $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE)
+	rm -rf $@
+	mkdir -p $(@D)
+	jmod create --class-path $(BUILD_CLASSES) $@
+
+$(BUILD_DIR)/generated/fuzion: $(BUILD_DIR)/feeze.jmod
+	rm -rf $(BUILD_DIR)/generated/fuzion
+	mkdir -p $(BUILD_DIR)/generated/fuzion
+	FUZION_JAVA_ADDITIONAL_CLASSPATH=$(BUILD_DIR)/classes $(FUZION_HOME)/bin/fzjava -to=$(BUILD_DIR)/generated/fuzion -modules=java.base  $^
+	touch $@
+
+run_control: $(BUILD_DIR)/generated/fuzion
+	@if [ ! -e $(FUZION_HOME)/bin/fz ]; then \
+	  echo "*** error: fz not found, please set env var FUZION_HOME" >&2; \
+	  exit 1; \
+	fi
+	FUZION_JAVA_ADDITIONAL_CLASSPATH=build/classes $(FUZION_HOME)/bin/fz -modules=java.base,java.datatransfer,java.xml,java.desktop -sourceDirs=src/fuzion,$(BUILD_DIR)/generated/fuzion feeze
+
 
 # remove all built files
 clean:
 	rm -rf $(BUILD_DIR)
-	find . -name "*~" | xargs rm
+	find . -name "*~" -exec rm {} \;

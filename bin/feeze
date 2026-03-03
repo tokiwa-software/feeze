@@ -1,0 +1,59 @@
+#!/usr/bin/env sh
+
+# This file is part of the feeze tools
+#
+# The feeze tool is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, version 3 of the License.
+#
+# The feeze tool is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with The
+# Fuzion language implementation.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# -----------------------------------------------------------------------
+#
+#  Tokiwa Software GmbH, Germany
+#
+#  Source code of feeze command, the main entry point in the feeze GUI
+#
+#  Author: Fridtjof Siebert (siebert@tokiwa.software)
+#
+# -----------------------------------------------------------------------
+
+
+# usage: feeze
+#
+
+set -eu
+
+FEEZE_CMD=$0
+FEEZE_BIN="$(dirname "$(readlink -f "$0")")"
+
+: "${FEEZE_HOME="$FEEZE_BIN/.."}"
+: "${FEEZE_JAVA=java}"
+: "${FEEZE_JAVA_ADDITIONAL_CLASSPATH=""}"
+: "${FEEZE_JAVA_CLASSPATH="$FEEZE_HOME/classes"}"
+if [ -n "$FEEZE_JAVA_ADDITIONAL_CLASSPATH" ]
+then
+  FEEZE_JAVA_CLASSPATH="$FEEZE_JAVA_CLASSPATH:$FEEZE_JAVA_ADDITIONAL_CLASSPATH"
+fi
+: "${FEEZE_JAVA_STACK_SIZE=1m}"
+: "${FEEZE_JAVA_OPTIONS="-Xss$FEEZE_JAVA_STACK_SIZE"}"
+: "${FEEZE_JAVA_ADDITIONAL_OPTIONS=--enable-preview --enable-native-access=ALL-UNNAMED}"
+
+# shellcheck disable=SC2086
+$FEEZE_JAVA \
+  $FEEZE_JAVA_OPTIONS \
+  $FEEZE_JAVA_ADDITIONAL_OPTIONS \
+  --class-path "$FEEZE_JAVA_CLASSPATH" \
+  -Dfile.encoding=UTF-8 \
+  -Dfeeze.home="$FEEZE_HOME" \
+  -Dfeeze.command="$FEEZE_CMD" \
+  -p ${FEEZE_HOME} \
+  -m @MAIN_CLASS@ \
+  "$@"
