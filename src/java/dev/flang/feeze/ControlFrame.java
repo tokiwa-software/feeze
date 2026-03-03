@@ -33,7 +33,10 @@ import java.awt.event.KeyEvent;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.GroupLayout;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 import dev.flang.util.Threads;
@@ -48,6 +51,11 @@ import dev.flang.util.Threads;
  */
 public class ControlFrame
 {
+
+
+  JTextField _sharedMemName;
+  JButton _startRecorder, _showData;
+  JTextArea _recorderOutput;
 
 
   /**
@@ -65,22 +73,24 @@ public class ControlFrame
   {
     var frame = new JFrame("Feeze Control");
 
-    var t1 = new JTextField(Feeze.SHARED_MEM_NAME);
-    var b1 = button(" start local recorder ", KeyEvent.VK_S, "start local recording service, requires superuser status");
-    var b2 = button(" show data ", KeyEvent.VK_D, "show recorded data");
+    _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
+    _startRecorder = button(" start local recorder ", KeyEvent.VK_S, "start local recording service, requires superuser status");
+    _showData = button(" show data ", KeyEvent.VK_D, "show recorded data");
     if (!Feeze.sharedMemExists())
       {
-        b2.setEnabled(false);
+        _showData.setEnabled(false);
       }
+    _recorderOutput = new JTextArea(77,10);
+    _recorderOutput.setText("");
     new Thread(()->
                {
                  while (true)
                    {
                      Threads.sleep(1000);
                      var ex = Feeze.sharedMemExists();
-                     if (ex != b2.isEnabled())
+                     if (ex != _showData.isEnabled())
                        {
-                         b2.setEnabled(ex);
+                         _showData.setEnabled(ex);
                        }
                    }
                }
@@ -89,22 +99,35 @@ public class ControlFrame
       setDaemon(true);
       start();
     } };
-    var controls = new JPanel(new GridLayout(1,0));
-    controls.add(t1);
-    controls.add(b1);
-    controls.add(b2);
-    final var content = new JPanel(new BorderLayout());
-    content.add(controls, BorderLayout.NORTH);
+    var ro = new JScrollPane(_recorderOutput);
+
+    var panel = new JPanel();
+    var layout = new GroupLayout(panel);
+    layout.setAutoCreateGaps(true);
+    layout.setAutoCreateContainerGaps(true);
+    panel.setLayout(layout);  // NYI: needed?, seems redundant
+    layout.setHorizontalGroup
+      (layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+       .addGroup(layout.createSequentialGroup()
+                 .addComponent(_sharedMemName)
+                 .addComponent(_startRecorder)
+                 .addComponent(_showData))
+       .addComponent(ro));
+    layout.setVerticalGroup
+      (layout.createSequentialGroup()
+       .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                 .addComponent(_sharedMemName)
+                 .addComponent(_startRecorder)
+                 .addComponent(_showData))
+       .addComponent(ro));
+    var content = panel;
     content.setOpaque(true);
     frame.setContentPane(content);
     frame.pack();
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setVisible(true);
 
-    var _listener = new ControlListener(b1, b2);
-
-
-    System.out.println("HAVE FRAME!");
+    var _listener = new ControlListener(this);
   }
 
 }
