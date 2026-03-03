@@ -28,15 +28,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package dev.flang.feeze;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.KeyEvent;
 
+import javax.swing.GroupLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.GroupLayout;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextPane;
 import javax.swing.JTextField;
 
 import dev.flang.util.Threads;
@@ -55,7 +58,7 @@ public class ControlFrame
 
   JTextField _sharedMemName;
   JButton _startRecorder, _showData;
-  JTextArea _recorderOutput;
+  JTextArea _recorderOutput; // Using JTextPane could allow text attributes like color (eg., red for stderr)
 
 
   /**
@@ -73,14 +76,16 @@ public class ControlFrame
   {
     var frame = new JFrame("Feeze Control");
 
+    var shMemNameLabel = new JLabel("Shared Memory File:");
     _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
+    _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
     _startRecorder = button(" start local recorder ", KeyEvent.VK_S, "start local recording service, requires superuser status");
     _showData = button(" show data ", KeyEvent.VK_D, "show recorded data");
     if (!Feeze.sharedMemExists())
       {
         _showData.setEnabled(false);
       }
-    _recorderOutput = new JTextArea(77,10);
+    _recorderOutput = new JTextArea(10,77);
     _recorderOutput.setText("");
     new Thread(()->
                {
@@ -99,6 +104,7 @@ public class ControlFrame
       setDaemon(true);
       start();
     } };
+    var rolabel = new JLabel("recorder output:");
     var ro = new JScrollPane(_recorderOutput);
 
     var panel = new JPanel();
@@ -109,16 +115,23 @@ public class ControlFrame
     layout.setHorizontalGroup
       (layout.createParallelGroup(GroupLayout.Alignment.LEADING)
        .addGroup(layout.createSequentialGroup()
-                 .addComponent(_sharedMemName)
+                 .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                           .addComponent(shMemNameLabel)
+                           .addComponent(_sharedMemName))
                  .addComponent(_startRecorder)
                  .addComponent(_showData))
-       .addComponent(ro));
+       .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                 .addComponent(rolabel))
+                 .addComponent(ro));
     layout.setVerticalGroup
       (layout.createSequentialGroup()
        .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
-                 .addComponent(_sharedMemName)
+                 .addGroup(layout.createSequentialGroup()
+                           .addComponent(shMemNameLabel)
+                           .addComponent(_sharedMemName))
                  .addComponent(_startRecorder)
                  .addComponent(_showData))
+       .addComponent(rolabel)
        .addComponent(ro));
     var content = panel;
     content.setOpaque(true);
