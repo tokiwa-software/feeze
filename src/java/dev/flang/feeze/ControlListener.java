@@ -40,6 +40,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -82,6 +83,9 @@ class ControlListener
   final ControlFrame _control;
 
 
+  BufferedWriter _recorderInput;
+
+
   /*--------------------------  constructors  ---------------------------*/
 
 
@@ -94,6 +98,7 @@ class ControlListener
   {
     this._control = control;
     addButton(control._startRecorder,"start recorder");
+    addButton(control._record,"record");
     addButton(control._showData,"show data");
     //    p.addMouseListener(this);
     //_startRecorder.addActionListener(this);
@@ -177,9 +182,8 @@ class ControlListener
   */
 
 
-  LinkedList<String> asyncRead(InputStream in, Object lock)
+  LinkedList<String> asyncRead(BufferedReader in, Object lock, String streamName)
   {
-    var input = new BufferedReader(new InputStreamReader(in));
     var inputQueue = new LinkedList<String>();
     new Thread(()->
                {
@@ -189,7 +193,7 @@ class ControlListener
                      String s;
                      try
                        {
-                         s = input.readLine();
+                         s = in.readLine();
                          if (s == null)
                            {
                              s = "*** EOF";
@@ -207,8 +211,18 @@ class ControlListener
                          lock.notify();
                        }
                    }
+                 try
+                   {
+                     in.close();
+                   }
+                 catch (IOException ioe)
+                   { // NYI: ignored
+                   }
                })
-    { { setDaemon(true); start(); } };
+    { {
+      setDaemon(true);
+      start();
+    } };
     return inputQueue;
   }
 
@@ -221,7 +235,7 @@ class ControlListener
   @Override
   public void actionPerformed(ActionEvent e)
   {
-    System.out.println("ACTION: "+e.getActionCommand());
+    // System.out.println("ACTION: "+e.getActionCommand());
     switch (e.getActionCommand())
       {
       case "start recorder" ->
@@ -230,48 +244,47 @@ class ControlListener
             {
               try
                 {
-                  //              Runtime.getRuntime().exec(new String[] { "/usr/bin/pkexec", "echo", "Hi" });
-                  //Runtime.getRuntime().exec(new String[] { "/usr/bin/pkexec", "ls" });
                   var p = Path.of(Feeze.FEEZE_HOME).resolve("bin").resolve("feeze_recorder").normalize().toAbsolutePath();
-                  System.out.println("path is "+p);
-                  var p1 = new ProcessBuilder("/usr/bin/pkexec", p.toString()).start();
-                  System.out.println("*** Started: "+p1);
+                  var p1 = new ProcessBuilder("/usr/bin/pkexec",
+                                              p.toString()).start();
                   var lock = new Object();
-                  var input = asyncRead(p1.getInputStream(), lock);
-                  var error = asyncRead(p1.getErrorStream(), lock);
+                  var input = true ? asyncRead(p1.inputReader(), lock, "stdout") : null;
+                  var error = true ? asyncRead(p1.errorReader(), lock, "stderr") : null;
 
-                  while (p1.isAlive())
+                  new Thread(()->
                     {
-                      synchronized (lock)
+                      while (p1.isAlive())
                         {
-                          while (input.isEmpty() && error.isEmpty() && p1.isAlive())
+                          synchronized (lock)
                             {
-                              Threads.wait(lock);
-                            }
-                          while (!input.isEmpty())
-                            {
-                              var s = input.removeFirst();
-                              // System.out.println("RECORDER: "+s);
-                              _control._recorderOutput.append(s+"\n");
-                            }
-                          while (!error.isEmpty())
-                            {
-                              var s = error.removeFirst();
-                              //System.out.println("RECORDER: *** ERROR *** "+s);
-                              _control._recorderOutput.append("ERR: "+s+"\n");
+                              while ((input==null || input.isEmpty()) &&
+                                     (error==null || error.isEmpty()) && p1.isAlive())
+                                {
+                                  Threads.wait(lock);
+                                }
+                              while (input != null && !input.isEmpty())
+                                {
+                                  var s = input.removeFirst();
+                                  _control._recorderOutput.append(s+"\n");
+                                }
+                              while (error != null && !error.isEmpty())
+                                {
+                                  var s = error.removeFirst();
+                                  _control._recorderOutput.append("ERR: "+s+"\n");
+                                }
                             }
                         }
-                    }
-                  p1.waitFor();
-                  System.out.println("*** FINISHED: "+p1);
-                  if (false)
+                    })
+                  { {
+                    setDaemon(true);
+                    start();
+                  } };
+                  synchronized (ControlListener.this)
                     {
-                      var p2 = new ProcessBuilder("/usr/bin/pkexec", "pwd").inheritIO().start();
-                      p2.waitFor();
-                      var p3 = new ProcessBuilder("/usr/bin/pkexec", "env").inheritIO().start();
-                      p3.waitFor();
-                      JOptionPane.showMessageDialog(_control._startRecorder, "ok", DIALOG_HEADER, JOptionPane.INFORMATION_MESSAGE, null /* Icon */);
+                      _recorderInput = p1.outputWriter();
                     }
+                  _control._record.setEnabled(true);
+                  p1.waitFor();
                 }
               catch (IOException ioe)
                 {
@@ -281,8 +294,56 @@ class ControlListener
                 {
                   JOptionPane.showMessageDialog(_control._startRecorder, "Interrupted! "+ie.getMessage(), DIALOG_HEADER, JOptionPane.ERROR_MESSAGE, null /* Icon */);
                 }
+              finally
+                {
+                  BufferedWriter w;
+                  synchronized (ControlListener.this)
+                    {
+                      w = _recorderInput;
+                      _recorderInput = null;
+                    }
+                  if (w != null)
+                    {
+                      try
+                        {
+                          w.close();
+                        }
+                      catch (IOException ioe)
+                        {
+                          // ignore.
+                        }
+                    }
+                  _control._record.setEnabled(false);
+                }
             }
                      ).start();
+        }
+      case "record" ->
+        {
+          BufferedWriter w;
+          synchronized (ControlListener.this)
+            {
+              w = _recorderInput;
+            }
+          if (w != null)
+            {
+              new Thread(()->
+                         {
+                           try
+                             {
+                               w.write("START\n");
+                               w.flush();
+                             }
+                           catch (IOException ioe)
+                             {
+                               // ignore
+                             }
+                         })
+                  { {
+                    setDaemon(true);
+                    start();
+                  } };
+            }
         }
       case "show data" ->
         {

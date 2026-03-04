@@ -57,7 +57,7 @@ public class ControlFrame
 
 
   JTextField _sharedMemName;
-  JButton _startRecorder, _showData;
+  JButton _startRecorder, _record, _showData;
   JTextArea _recorderOutput; // Using JTextPane could allow text attributes like color (eg., red for stderr)
 
 
@@ -80,6 +80,8 @@ public class ControlFrame
     _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
     _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
     _startRecorder = button(" start local recorder ", KeyEvent.VK_S, "start local recording service, requires superuser status");
+    _record = button(" record ", KeyEvent.VK_S, "start local recording service, requires superuser status");
+    _record.setEnabled(false);
     _showData = button(" show data ", KeyEvent.VK_D, "show recorded data");
     if (!Feeze.sharedMemExists())
       {
@@ -119,6 +121,7 @@ public class ControlFrame
                            .addComponent(shMemNameLabel)
                            .addComponent(_sharedMemName))
                  .addComponent(_startRecorder)
+                 .addComponent(_record)
                  .addComponent(_showData))
        .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
                  .addComponent(rolabel))
@@ -130,6 +133,7 @@ public class ControlFrame
                            .addComponent(shMemNameLabel)
                            .addComponent(_sharedMemName))
                  .addComponent(_startRecorder)
+                 .addComponent(_record)
                  .addComponent(_showData))
        .addComponent(rolabel)
        .addComponent(ro));

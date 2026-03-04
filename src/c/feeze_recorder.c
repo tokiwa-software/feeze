@@ -389,7 +389,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
       entry* entries = (entry*) &(shmem[1]);
       if ((void*) &entries[ec+1] > (void*) &((char*)shmem)[SHARED_MEM_SIZE])
         {
-          printf("shared mem buffer full\n");
+          printf("shared mem buffer full\n"); // fflush(stdout);
           exiting = true;
         }
       else
@@ -451,7 +451,7 @@ void *t12start(void *arg)
 /**
  * main function
  */
-int main(int argc, char**args)
+int record()
 {
   int entry_start_offset = (char*) &(shmem[1]) -
                            (char*) &(shmem[0]);
@@ -460,6 +460,7 @@ int main(int argc, char**args)
 
   printf("entries start offset 0x%x, entry size 0x%x\n",
          entry_start_offset, entry_size);
+  // fflush(stdout);
 
   if (entry_size != ENTRY_SIZE)
     {
@@ -503,7 +504,7 @@ int main(int argc, char**args)
   __sync_synchronize();
   shmem->size = SHARED_MEM_SIZE;
 
-  printf("sched starting:\n");
+  printf("sched starting:\n"); // fflush(stdout);
 
   /* Clean handling of Ctrl-C */
   signal(SIGINT, sig_handler);
@@ -576,7 +577,7 @@ int main(int argc, char**args)
 
       if (err < 0)
         {
-          printf("Error polling ring buffer: %s (%d)\n", strerror(err), err);
+          printf("Error polling ring buffer: %s (%d)\n", strerror(err), err); // fflush(stdout);
           exiting = true;
         }
       else
@@ -620,4 +621,42 @@ int main(int argc, char**args)
          }
     }
   return err==0 ? 0 : 1;
+}
+
+
+/**
+ * main function
+ */
+int main(int argc, char**args)
+{
+  int returnCode = 0;
+  int N = 4096;
+  char line[N];
+  bool done = false;
+  setbuf(stdout, NULL);
+  while (!done)
+    {
+      char *s = fgets(line, N, stdin);
+      fprintf(stdout, "GOT INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
+      if (s == NULL)
+        {
+          done = true;
+        }
+      else if (strcmp(s, "START\n") == 0)
+        {
+          fprintf(stdout, "START FOR INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
+          returnCode = record();
+          // done = (returnCode != 0);
+        }
+      else if (strcmp(s, "EXIT\n") == 0 || strcmp(s, "QUIT\n") == 0)
+        {
+          fprintf(stdout, "*** exiting due to command %s!\n", s); // fflush(stdout);
+          done = true;
+        }
+      else
+        {
+          fprintf(stderr, "*** unknown command '%s'!\n", s);
+        }
+    }
+  return returnCode;
 }
