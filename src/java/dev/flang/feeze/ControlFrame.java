@@ -86,10 +86,10 @@ public class ControlFrame
         var shMemNameLabel = new JLabel("Shared Memory File:");
         _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
         _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
-        _startRecorder = button(" start local recorder ", KeyEvent.VK_S, "start local recording service, requires superuser status");
-        _record = button(" record ", KeyEvent.VK_R, "start local recording service, requires superuser status");
+        _startRecorder = button("start local recorder", KeyEvent.VK_S, "start local recording service, requires superuser status");
+        _record = button("record", KeyEvent.VK_R, "start local recording service, requires superuser status");
         _record.setEnabled(false);
-        _showData = button(" show data ", KeyEvent.VK_D, "show recorded data");
+        _showData = button("show data", KeyEvent.VK_D, "show recorded data");
 
         if (!Feeze.sharedMemExists(_sharedMemName.getText()))
           {

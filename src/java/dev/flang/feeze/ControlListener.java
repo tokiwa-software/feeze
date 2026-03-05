@@ -230,6 +230,7 @@ class ControlListener
       {
       case "start recorder" ->
         {
+          _control._startRecorder.setEnabled(false);
           Threads.inDaemon(()->
             {
               try
@@ -256,6 +257,18 @@ class ControlListener
                                 {
                                   var s = input.removeFirst();
                                   _control._recorderOutput.append(s+"\n");
+                                  if (s.startsWith("DONE RECORDING"))
+                                    {
+                                      _control._record.setText("record");
+                                    }
+                                  else if (s.startsWith("Waiting for commands..."))
+                                    {
+                                      _control._record.setEnabled(true);
+                                    }
+                                  else if (s.startsWith("START RECORDING"))
+                                    {
+                                      _control._record.setText("stop");
+                                    }
                                 }
                               while (error != null && !error.isEmpty())
                                 {
@@ -300,11 +313,20 @@ class ControlListener
                         }
                     }
                   _control._record.setEnabled(false);
+                  _control._startRecorder.setEnabled(true);
                 }
             });
         }
       case "record" ->
         {
+          _control._record.setEnabled(false);
+          var txt = _control._record.getText();
+          var cmd = switch (txt)
+            {
+            case "record" -> "START '"+_control._sharedMemName.getText()+"'\n";
+            case "stop"   -> "STOP\n";
+            default       -> throw new Error("*** unexpected text in recoder button: '"+txt+"'");
+            };
           BufferedWriter w;
           synchronized (ControlListener.this)
             {
@@ -316,7 +338,7 @@ class ControlListener
                          {
                            try
                              {
-                               w.write("START '"+_control._sharedMemName.getText()+"'\n");
+                               w.write(cmd);
                                w.flush();
                              }
                            catch (IOException ioe)

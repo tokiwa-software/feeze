@@ -57,6 +57,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 static volatile bool exiting = false;
 
+/**
+ * Flag used to indicate that we should recording andclean up, but wait for further instructions
+ */
+static volatile bool finishing = false;
+
 
 typedef struct shared_buffer shared_buffer;
 typedef struct entry entry;
@@ -166,6 +171,7 @@ static int libbpf_print_fn(enum libbpf_print_level level,
 static void sig_handler(int sig)
 {
   exiting = true;
+  finishing = true;
 }
 
 
@@ -175,14 +181,14 @@ static void sig_handler(int sig)
  */
 void post_entry(struct entry *e)
 {
-  if (!exiting)
+  if (!finishing)
     {
       uint64_t ec = eventcount;
       entry* entries = (entry*) &(shmem[1]);
       if ((void*) &entries[ec+1] > (void*) &((char*)shmem)[SHARED_MEM_SIZE])
         {
           printf("shared mem buffer full\n");
-          exiting = true;
+          finishing = true;
         }
       else
         {
@@ -382,7 +388,7 @@ void add_thread(pid_t tid, char name[16])
  */
 int handle_event(void *ctx, void *data, size_t data_sz)
 {
-  if (!exiting && data != NULL && data_sz == sizeof(struct event))
+  if (!finishing && data != NULL && data_sz == sizeof(struct event))
     {
       const struct event *e = data;
       uint64_t ec = eventcount;
@@ -390,7 +396,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
       if ((void*) &entries[ec+1] > (void*) &((char*)shmem)[SHARED_MEM_SIZE])
         {
           printf("shared mem buffer full\n"); // fflush(stdout);
-          exiting = true;
+          finishing = true;
         }
       else
         {
@@ -427,7 +433,7 @@ void *t12start(void *arg)
 {
   int thrid = arg==NULL ? 0 : 1;
   int threadId = pthread_self();
-  while (!exiting)
+  while (!finishing)
     {
       pthread_mutex_lock(&mutex);
       uint64_t c = ++counter;
@@ -451,8 +457,9 @@ void *t12start(void *arg)
 /**
  * main function
  */
-int record(char *shMemFileName)
+void *record(void *arg)
 {
+  char *shMemFileName = arg;
   int entry_start_offset = (char*) &(shmem[1]) -
                            (char*) &(shmem[0]);
   int entry_size = (char *) &(((entry*) &(shmem[1]))[1]) -
@@ -463,6 +470,12 @@ int record(char *shMemFileName)
       fprintf(stderr, "sizeof(entry) should be %d, but is %lu\n",ENTRY_SIZE, sizeof(entry));
       exit(1);
     }
+
+  counter = 0;
+  eventcount = 0;
+  num_threads = 0;
+  num_processes = 0;
+  finishing = false;
 
   struct ring_buffer *rb = NULL;
   int err;
@@ -566,21 +579,25 @@ int record(char *shMemFileName)
       goto cleanup;
     }
 
-  pthread_mutex_init(&mutex, NULL);
+  if (false)
+    {
+      // start very busy threads to test the events recording at high frequency:
+      pthread_mutex_init(&mutex, NULL);
 
-  pthread_t t1 = {};
-  pthread_t t2 = {};
-  pthread_create(&t1, NULL, t12start, NULL);  pthread_setname_np(t1,"AAAAA");
-  pthread_create(&t2, NULL, t12start, "1" );  pthread_setname_np(t2,"BBBBB");
+      pthread_t t1 = {};
+      pthread_t t2 = {};
+      pthread_create(&t1, NULL, t12start, NULL);  pthread_setname_np(t1,"AAAAA");
+      pthread_create(&t2, NULL, t12start, "1" );  pthread_setname_np(t2,"BBBBB");
+    }
 
-  while (!exiting)
+  while (!finishing)
     {
       err = ring_buffer__poll(rb, 100 /* timeout, ms */);
 
       if (err < 0)
         {
           fprintf(stderr, "Error polling ring buffer: %s (%d)\n", strerror(err), err);
-          exiting = true;
+          finishing = true;
         }
       else
         {
@@ -622,7 +639,9 @@ int record(char *shMemFileName)
           err = 1;
          }
     }
-  return err==0 ? 0 : 1;
+  fprintf(stdout, "DONE RECORDING TO '%s'\n", shMemFileName); fflush(stdout);
+  // NYI: store err somewhere?
+  return NULL;
 }
 
 
@@ -648,42 +667,50 @@ bool str_endsWith(char *s, char *p)
 }
 
 
+
+#define N 4096
+char name[N];
+
 /**
  * main function
  */
 int main(int argc, char**args)
 {
   int returnCode = 0;
-  int N = 4096;
   char line[N];
-  bool done = false;
   setbuf(stdout, NULL);
-  printf("feeze recorder started, waiting for commands..."); fflush(stdout);
-  while (!done)
+  printf("feeze recorder started, waiting for commands...\n"); fflush(stdout);
+  while (!exiting)
     {
+      printf("Waiting for commands...\n"); fflush(stdout);
       char *s = fgets(line, N, stdin);
       // fprintf(stdout, "GOT INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
       if (s == NULL)
         {
-          done = true;
+          exiting = true;
         }
       else if (strcmp(s, "START\n") == 0)
         {
           fprintf(stdout, "START RECORDING"); // fflush(stdout);
-          returnCode = record(SHARED_MEM_NAME);
+          pthread_t rt = {};
+          pthread_create(&rt, NULL, record, name);  pthread_setname_np(rt,"feeze_record");
         }
       else if (str_startsWith(s, "START '") &&
                str_endsWith  (s, "'\n"    )    )
         {
-          char name[N];
           strncpy(name, s+7, strlen(s)-7-2);
-          fprintf(stdout, "START RECORDING TO '%s'\n", name); // fflush(stdout);
-          returnCode = record(name);
+          fprintf(stdout, "START RECORDING TO '%s'\n", name); fflush(stdout);
+          pthread_t rt = {};
+          pthread_create(&rt, NULL, record, name);  pthread_setname_np(rt,"feeze_record");
+        }
+      else if (strcmp(s, "STOP\n") == 0)
+        {
+          finishing = true;
         }
       else if (strcmp(s, "EXIT\n") == 0 || strcmp(s, "QUIT\n") == 0)
         {
           fprintf(stdout, "*** exiting due to command %s!\n", s); // fflush(stdout);
-          done = true;
+          exiting = true;
         }
       else
         {
