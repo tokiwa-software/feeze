@@ -247,7 +247,7 @@ class ControlListener
                   var input = true ? asyncRead(p1.inputReader(), lock, "stdout") : null;
                   var error = true ? asyncRead(p1.errorReader(), lock, "stderr") : null;
 
-                  new Thread(()->
+                  Threads.inDaemon(()->
                     {
                       while (p1.isAlive())
                         {
@@ -270,11 +270,7 @@ class ControlListener
                                 }
                             }
                         }
-                    })
-                  { {
-                    setDaemon(true);
-                    start();
-                  } };
+                    });
                   synchronized (ControlListener.this)
                     {
                       _recorderInput = p1.outputWriter();
@@ -338,7 +334,7 @@ class ControlListener
         }
       case "show data" ->
         {
-          Threads.inDaemon(()->Feeze.showData());
+          Threads.inDaemon(()->Feeze.showData(_control._sharedMemName.getText()));
         }
       }
   }

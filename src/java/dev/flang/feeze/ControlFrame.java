@@ -83,29 +83,24 @@ public class ControlFrame
     _record = button(" record ", KeyEvent.VK_S, "start local recording service, requires superuser status");
     _record.setEnabled(false);
     _showData = button(" show data ", KeyEvent.VK_D, "show recorded data");
-    if (!Feeze.sharedMemExists())
+    if (!Feeze.sharedMemExists(_sharedMemName.getText()))
       {
         _showData.setEnabled(false);
       }
     _recorderOutput = new JTextArea(10,77);
     _recorderOutput.setText("");
-    new Thread(()->
-               {
-                 while (true)
-                   {
-                     Threads.sleep(1000);
-                     var ex = Feeze.sharedMemExists();
-                     if (ex != _showData.isEnabled())
-                       {
-                         _showData.setEnabled(ex);
-                       }
-                   }
-               }
-               )
-    { {
-      setDaemon(true);
-      start();
-    } };
+    Threads.inDaemon(()->
+      {
+        while (true)
+          {
+            Threads.sleep(1000);  // NYI: CLEANUP: DO this whenever the input text changes or when the file changes!
+            var ex = Feeze.sharedMemExists(_sharedMemName.getText());
+            if (ex != _showData.isEnabled())
+              {
+                _showData.setEnabled(ex);
+              }
+          }
+      });
     var rolabel = new JLabel("recorder output:");
     var ro = new JScrollPane(_recorderOutput);
 

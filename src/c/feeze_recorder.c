@@ -451,7 +451,7 @@ void *t12start(void *arg)
 /**
  * main function
  */
-int record()
+int record(char *shMemFileName)
 {
   int entry_start_offset = (char*) &(shmem[1]) -
                            (char*) &(shmem[0]);
@@ -467,7 +467,7 @@ int record()
   struct ring_buffer *rb = NULL;
   int err;
   //  int shared = shm_open(SHARED_MEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
-  int shared = open(SHARED_MEM_NAME,
+  int shared = open(shMemFileName,
                     0
                     | O_RDWR
                     | O_CREAT
@@ -661,23 +661,23 @@ int main(int argc, char**args)
   while (!done)
     {
       char *s = fgets(line, N, stdin);
-      fprintf(stdout, "GOT INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
+      // fprintf(stdout, "GOT INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
       if (s == NULL)
         {
           done = true;
         }
       else if (strcmp(s, "START\n") == 0)
         {
-          fprintf(stdout, "START FOR INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
-          returnCode = record();
+          fprintf(stdout, "START RECORDING"); // fflush(stdout);
+          returnCode = record(SHARED_MEM_NAME);
         }
       else if (str_startsWith(s, "START '") &&
                str_endsWith  (s, "'\n"    )    )
         {
           char name[N];
           strncpy(name, s+7, strlen(s)-7-2);
-          fprintf(stdout, "START FOR NAME '%s'\n", name); // fflush(stdout);
-          returnCode = record();
+          fprintf(stdout, "START RECORDING TO '%s'\n", name); // fflush(stdout);
+          returnCode = record(name);
         }
       else if (strcmp(s, "EXIT\n") == 0 || strcmp(s, "QUIT\n") == 0)
         {

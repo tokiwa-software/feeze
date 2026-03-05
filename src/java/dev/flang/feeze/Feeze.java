@@ -57,9 +57,9 @@ public class Feeze implements Offsets
 
   public static Path SHARED_MEM_PATH = Path.of("/tmp/feeze_events_recorder_data");
   public static String SHARED_MEM_NAME = SHARED_MEM_PATH.toString();
-  public static boolean sharedMemExists()
+  public static boolean sharedMemExists(String shMemFileName)
   {
-    return Files.exists(SHARED_MEM_PATH);
+    return Files.exists(Path.of(shMemFileName));
   }
   public static final long   SHARED_MEM_SIZE = 64*1024*1024;
 
@@ -74,7 +74,7 @@ public class Feeze implements Offsets
     var c = new ControlFrame();
   }
 
-  static void showData()
+  static void showData(String shMemFileName)
   {
     FeezeDataFrame dataFrame = null;
     var done = false;
@@ -82,7 +82,7 @@ public class Feeze implements Offsets
       {
         try
           {
-            var f = new File(SHARED_MEM_NAME);
+            var f = new File(shMemFileName);
             try (var channel = FileChannel.open(f.toPath(), StandardOpenOption.READ))
               {
                 long l;
