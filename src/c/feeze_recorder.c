@@ -191,7 +191,7 @@ void post_entry(struct entry *e)
           shmem->num_entries = ec+1;
           eventcount = ec+1;
           uint64_t n = eventcount; //  & ~((uint64_t) 0x3f);
-          if ((n & (n-1))==0)
+          if (false && (n & (n-1))==0)
             {
               printf("thread switch %lu: %d (%s) -> %d (%s) at %luns\n",
                      eventcount,
@@ -458,10 +458,6 @@ int record()
   int entry_size = (char *) &(((entry*) &(shmem[1]))[1]) -
                    (char *) &(((entry*) &(shmem[1]))[0]);
 
-  printf("entries start offset 0x%x, entry size 0x%x\n",
-         entry_start_offset, entry_size);
-  // fflush(stdout);
-
   if (entry_size != ENTRY_SIZE)
     {
       fprintf(stderr, "sizeof(entry) should be %d, but is %lu\n",ENTRY_SIZE, sizeof(entry));
@@ -471,7 +467,12 @@ int record()
   struct ring_buffer *rb = NULL;
   int err;
   //  int shared = shm_open(SHARED_MEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
-  int shared = open(SHARED_MEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
+  int shared = open(SHARED_MEM_NAME,
+                    0
+                    | O_RDWR
+                    | O_CREAT
+                    /* | O_EXCL  -- cause error in case file exists */,
+                    0644);
   if (shared < 0)
     {
       fprintf(stderr,"shm_open(%s) failed: %d %s\n",SHARED_MEM_NAME, errno, strerror(errno));
@@ -504,8 +505,6 @@ int record()
   __sync_synchronize();
   shmem->size = SHARED_MEM_SIZE;
 
-  printf("sched starting:\n"); // fflush(stdout);
-
   /* Clean handling of Ctrl-C */
   signal(SIGINT, sig_handler);
   signal(SIGTERM, sig_handler);
@@ -513,7 +512,10 @@ int record()
   struct feeze_recorder_bpf *skel;
 
   /* Set up libbpf errors and debug info callback */
-  libbpf_set_print(libbpf_print_fn);
+  if (false)
+    {
+      libbpf_set_print(libbpf_print_fn);
+    }
 
   /* Open BPF application */
   skel = feeze_recorder_bpf__open();
@@ -577,7 +579,7 @@ int record()
 
       if (err < 0)
         {
-          printf("Error polling ring buffer: %s (%d)\n", strerror(err), err); // fflush(stdout);
+          fprintf(stderr, "Error polling ring buffer: %s (%d)\n", strerror(err), err);
           exiting = true;
         }
       else
@@ -625,6 +627,28 @@ int record()
 
 
 /**
+ * Does strinc `s` start with string `p`?
+ */
+bool str_startsWith(char *s, char *p)
+{
+  return strncmp(s, p, strlen(p)) == 0;
+}
+
+
+/**
+ * Does strinc `s` end with string `p`?
+ */
+bool str_endsWith(char *s, char *p)
+{
+  size_t sl = strlen(s);
+  size_t pl = strlen(p);
+  return
+    sl >= pl &&
+    strcmp(s+sl-pl, p) == 0;
+}
+
+
+/**
  * main function
  */
 int main(int argc, char**args)
@@ -646,7 +670,14 @@ int main(int argc, char**args)
         {
           fprintf(stdout, "START FOR INPUT '%s'\n", s==NULL?"null":s); // fflush(stdout);
           returnCode = record();
-          // done = (returnCode != 0);
+        }
+      else if (str_startsWith(s, "START '") &&
+               str_endsWith  (s, "'\n"    )    )
+        {
+          char name[N];
+          strncpy(name, s+7, strlen(s)-7-2);
+          fprintf(stdout, "START FOR NAME '%s'\n", name); // fflush(stdout);
+          returnCode = record();
         }
       else if (strcmp(s, "EXIT\n") == 0 || strcmp(s, "QUIT\n") == 0)
         {

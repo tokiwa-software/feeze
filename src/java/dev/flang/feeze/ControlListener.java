@@ -185,7 +185,7 @@ class ControlListener
   LinkedList<String> asyncRead(BufferedReader in, Object lock, String streamName)
   {
     var inputQueue = new LinkedList<String>();
-    new Thread(()->
+    Threads.inDaemon(()->
                {
                  var ok = true;
                  while (ok)
@@ -218,11 +218,7 @@ class ControlListener
                  catch (IOException ioe)
                    { // NYI: ignored
                    }
-               })
-    { {
-      setDaemon(true);
-      start();
-    } };
+               });
     return inputQueue;
   }
 
@@ -240,7 +236,7 @@ class ControlListener
       {
       case "start recorder" ->
         {
-          new Thread(()->
+          Threads.inDaemon(()->
             {
               try
                 {
@@ -315,8 +311,7 @@ class ControlListener
                     }
                   _control._record.setEnabled(false);
                 }
-            }
-                     ).start();
+            });
         }
       case "record" ->
         {
@@ -327,27 +322,23 @@ class ControlListener
             }
           if (w != null)
             {
-              new Thread(()->
+              Threads.inDaemon(()->
                          {
                            try
                              {
-                               w.write("START\n");
+                               w.write("START '"+_control._sharedMemName.getText()+"'\n");
                                w.flush();
                              }
                            catch (IOException ioe)
                              {
                                // ignore
                              }
-                         })
-                  { {
-                    setDaemon(true);
-                    start();
-                  } };
+                         });
             }
         }
       case "show data" ->
         {
-          new Thread(()->Feeze.showData()).start();
+          Threads.inDaemon(()->Feeze.showData());
         }
       }
   }

@@ -40,6 +40,8 @@ import java.nio.file.Path;
 
 import java.nio.channels.FileChannel;
 
+import dev.flang.util.Threads;
+
 /*---------------------------------------------------------------------*/
 
 
@@ -65,7 +67,6 @@ public class Feeze implements Offsets
 
   static MappedByteBuffer b;
 
-  static FeezeDataFrame _dataFrame;
 
 
   public static void main(String[] args)
@@ -75,8 +76,9 @@ public class Feeze implements Offsets
 
   static void showData()
   {
+    FeezeDataFrame dataFrame = null;
     var done = false;
-    while (true)
+    while (!done)
       {
         try
           {
@@ -107,17 +109,14 @@ public class Feeze implements Offsets
                 b.order(ByteOrder.LITTLE_ENDIAN);
                 _data = new Data(b);
                 _data.processNewData();
-                if (_dataFrame == null)
+                if (dataFrame == null)
                   {
-                    _dataFrame = new FeezeDataFrame(_data);
+                    dataFrame = new FeezeDataFrame(_data);
                   }
                 done = b.get(24)!=0;
-                try
+                if (!done)
                   {
-                    Thread.sleep(done ? Long.MAX_VALUE : 1000);
-                  }
-                catch (InterruptedException e)
-                  {
+                    Threads.sleep(1000);
                   }
               }
           }

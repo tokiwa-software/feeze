@@ -226,4 +226,17 @@ public class Threads
     setInterrupted(interrupted);
   }
 
+
+  /**
+   * Execute the given runnable code in a new daemon thread.
+   */
+  public static void inDaemon(Runnable r)
+  {
+    new Thread(r)
+    { {
+      setDaemon(true);
+      start();
+    } };
+  }
+
 }
