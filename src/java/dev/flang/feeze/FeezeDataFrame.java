@@ -30,6 +30,8 @@ package dev.flang.feeze;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -59,26 +61,40 @@ public class FeezeDataFrame
 
   FeezeDataFrame(Data data)
   {
-    var frame = new JFrame("Feeze Scheduling Data");
 
-    var b1 = button("🠊🠈", KeyEvent.VK_C, "compress time axis");
-    var b2 = button("🠈🠊", KeyEvent.VK_X, "expand time axis");
-    var b3 = button("+zoom", KeyEvent.VK_Z, "zoom in");
-    var b4 = button("-zoom", KeyEvent.VK_O, "zoom out");
-    var panorama = new SchedulingPanorama(data, b1, b2, b3, b4);
-    var controls = new JPanel(new GridLayout(1,0));
-    controls.add(b2);
-    controls.add(b1);
-    controls.add(b3);
-    controls.add(b4);
-    final var content = new JPanel(new BorderLayout());
-    content.add(panorama.scroller(0, panorama.dataHeight()), BorderLayout.CENTER);
-    content.add(controls, BorderLayout.SOUTH);
-    content.setOpaque(true);
-    frame.setContentPane(content);
-    frame.pack();
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setVisible(true);
+    javax.swing.SwingUtilities.invokeLater(()->
+      {
+        var frame = new JFrame("Feeze Scheduling Data");
+
+        var b1 = button("🠊🠈", KeyEvent.VK_C, "compress time axis");
+        var b2 = button("🠈🠊", KeyEvent.VK_X, "expand time axis");
+        var b3 = button("+zoom", KeyEvent.VK_Z, "zoom in");
+        var b4 = button("-zoom", KeyEvent.VK_O, "zoom out");
+        var panorama = new SchedulingPanorama(data, b1, b2, b3, b4);
+        var controls = new JPanel(new GridLayout(1,0));
+        controls.add(b2);
+        controls.add(b1);
+        controls.add(b3);
+        controls.add(b4);
+        final var content = new JPanel(new BorderLayout());
+        content.add(panorama.scroller(0, panorama.dataHeight()), BorderLayout.CENTER);
+        content.add(controls, BorderLayout.SOUTH);
+        content.setOpaque(true);
+        frame.setContentPane(content);
+        frame.pack();
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new WindowAdapter()
+          {
+            @Override
+            public void windowClosing(WindowEvent e)
+            {
+              // NYI: HACK: Must properly shutdown all threads serving this data frame!
+              frame.setVisible(false);
+              frame.dispose();
+            }
+          });
+        frame.setVisible(true);
+      });
   }
 
 }

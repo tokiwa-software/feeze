@@ -658,6 +658,7 @@ int main(int argc, char**args)
   char line[N];
   bool done = false;
   setbuf(stdout, NULL);
+  printf("feeze recorder started, waiting for commands..."); fflush(stdout);
   while (!done)
     {
       char *s = fgets(line, N, stdin);

@@ -53,6 +53,15 @@ import dev.flang.util.Threads;
 public class Feeze implements Offsets
 {
 
+
+  /*----------------------------  constants  ----------------------------*/
+
+
+  static String DIALOG_HEADER = "Feeze Controller";
+
+  /*------------------------------  fields  -----------------------------*/
+
+
   static Data _data = null;
 
   public static Path SHARED_MEM_PATH = Path.of("/tmp/feeze_events_recorder_data");

@@ -68,12 +68,6 @@ class ControlListener
 {
 
 
-  /*----------------------------  constants  ----------------------------*/
-
-
-  static String DIALOG_HEADER = "Feeze Controller";
-
-
   /*----------------------------  variables  ----------------------------*/
 
 
@@ -280,11 +274,11 @@ class ControlListener
                 }
               catch (IOException ioe)
                 {
-                  JOptionPane.showMessageDialog(_control._startRecorder, ioe.getMessage(), DIALOG_HEADER, JOptionPane.ERROR_MESSAGE, null /* Icon */);
+                  JOptionPane.showMessageDialog(_control._startRecorder, ioe.getMessage(), Feeze.DIALOG_HEADER, JOptionPane.ERROR_MESSAGE, null /* Icon */);
                 }
               catch (InterruptedException ie)
                 {
-                  JOptionPane.showMessageDialog(_control._startRecorder, "Interrupted! "+ie.getMessage(), DIALOG_HEADER, JOptionPane.ERROR_MESSAGE, null /* Icon */);
+                  JOptionPane.showMessageDialog(_control._startRecorder, "Interrupted! "+ie.getMessage(), Feeze.DIALOG_HEADER, JOptionPane.ERROR_MESSAGE, null /* Icon */);
                 }
               finally
                 {
