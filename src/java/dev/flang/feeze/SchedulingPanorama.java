@@ -81,6 +81,13 @@ class SchedulingPanorama extends Panorama
   static final int MIN_SCALE_WIDTH = 7;
 
 
+  /**
+   * Should there be a scale in the main scrolling area?
+   */
+  static final boolean SCALA_IN_MAIN_AREA = false;
+
+
+
   // Colors from fuzion-lang.dev:
   static Color bgcol = new Color(247,246,237);
   static Color peach = new Color(255, 229, 180);
@@ -366,7 +373,7 @@ class SchedulingPanorama extends Panorama
       (t >= 0);
 
     var r = getVisibleRect(); // NYI: make this an argument
-    var ts = 2*zoom(NORMAL_THREAD_SPACING);
+    var ts = SCALA_IN_MAIN_AREA ? 2*zoom(NORMAL_THREAD_SPACING) : 0;
     if (_lastThreadSpacing != ts || _lastPixelsPerNano != pixelsPerNano() ||
         _lastX != r.x || _lastW != r.width)
       {
@@ -464,8 +471,46 @@ class SchedulingPanorama extends Panorama
       }
     _threadShown[i] = f==1;
     return
+      (isFirstThreadOfUser(i+1) ? zoom((double) 2*Zoom.STANDARD_FONT_SIZE) : 0) +
+      //      (isFirstThreadOfProcess(i+1) ? zoom((double) NORMAL_THREAD_SPACING) : 0) +
       (1-f) * zoom((double) MIN_THREAD_SPACING) +
       (  f) * zoom((double) NORMAL_THREAD_SPACING);
+  }
+
+
+  boolean isFirstThreadOfUser(int i)
+  {
+    if (i == 0)
+      {
+        return true;
+      }
+    else if (i >= _data._threads.size())
+      {
+        return false;
+      }
+    else
+      {
+        var tm1 = _data._threads.get(i-1);
+        var t   = _data._threads.get(i);
+        return t._p._user != tm1._p._user;
+      }
+  }
+  boolean isFirstThreadOfProcess(int i)
+  {
+    if (i == 0)
+      {
+        return true;
+      }
+    else if (i >= _data._threads.size())
+      {
+        return false;
+      }
+    else
+      {
+        var tm1 = _data._threads.get(i-1);
+        var t   = _data._threads.get(i);
+        return t._p != tm1._p;
+      }
   }
 
 
@@ -739,7 +784,10 @@ class SchedulingPanorama extends Panorama
           }
       }
 
-    drawScale(g, r, threadY(0) - zoom(NORMAL_THREAD_SPACING), false);
+    if (SCALA_IN_MAIN_AREA)  //  additional scala in the data area
+      {
+        drawScale(g, r, threadY(0) - zoom(NORMAL_THREAD_SPACING), false);
+      }
   }
 
 
@@ -928,7 +976,7 @@ class SchedulingPanorama extends Panorama
       g.drawLine(r.x+r.width-1, r.y,
                  r.x+r.width-1, r.y+r.height);
 
-      for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
+      for (var i = Math.max(0, threadAt(r.y)-1); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
         {
           var t = _data._threads.get(i);
           var y = threadY(i);
@@ -946,6 +994,10 @@ class SchedulingPanorama extends Panorama
               g.setColor(gray);
               g.setFont(_zoom.standardFont());
               _zoom.drawStringR(g, t.toString(from_a), r.x+r.width-3, y - zoom(2));
+              if (isFirstThreadOfUser(i))
+                {
+                  _zoom.drawString(g, t._p._user._name, 3, y - zoom(2) - Zoom.STANDARD_FONT_SIZE);
+                }
             }
           g.setColor(gray);
           _zoom.drawHLine(g,1,r.x,y,r.x+r.width);

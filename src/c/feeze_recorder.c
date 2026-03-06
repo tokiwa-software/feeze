@@ -40,9 +40,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pwd.h>
 #include <sched.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <assert.h>
 
 #include "feeze_recorder_common.h"
 #include "feeze_recorder.skel.h"
@@ -77,14 +79,21 @@ struct  shared_buffer
   volatile bool     blublu;
 };
 
-#define ENTRY_KIND_UNUSED 0
+#define ENTRY_KIND_UNUSED       0
 #define ENTRY_KIND_SCHED_SWITCH 1
-#define ENTRY_KIND_PROCESS      2
-#define ENTRY_KIND_THREAD       3
+#define ENTRY_KIND_USER         2
+#define ENTRY_KIND_PROCESS      3
+#define ENTRY_KIND_THREAD       4
 
+struct user_payload
+{
+  uid_t uid;
+  char name[32];
+};
 struct process_payload
 {
   pid_t pid;
+  uid_t uid;
   char name[32];
 };
 struct thread_payload
@@ -113,6 +122,7 @@ struct entry
   uint32_t pad4;
   union
   {
+    struct user_payload         u;
     struct process_payload      p;
     struct thread_payload       t;
     struct sched_switch_payload ss;
@@ -152,6 +162,18 @@ pid_t process_pids[MAX_NUM_PROCESSES];
  * Number of processes in process_pids[] array.
  */
 int num_processes = 0;
+
+
+#define MAX_NUM_USERS (4096)
+
+uid_t user_uids[MAX_NUM_USERS];
+
+
+/**
+ * Number of users in user_uids[] array.
+ */
+int num_users = 0;
+
 
 /**
  * Callback installed using libbpf_set_print() used for debug output sent to
@@ -230,8 +252,6 @@ int thread_index(pid_t tid)
 /**
  * Find process pid in process_pids[] array at indices 0..num_processes-1.
  *
- * NYI: CLEANUP: unused, remove?
- *
  * @return the index of pid in process_pids[] or -1 if not found.
  */
 int process_index(pid_t pid)
@@ -243,6 +263,23 @@ int process_index(pid_t pid)
       i++;
     }
   return i < num_processes ? i : -1;
+}
+
+
+/**
+ * Find user uid in user_uids[] array at indices 0..num_users-1.
+ *
+ * @return the index of pid in process_pids[] or -1 if not found.
+ */
+int user_index(uid_t uid)
+{
+  int i =  0;
+
+  while (i < num_users && user_uids[i] != uid)
+    {
+      i++;
+    }
+  return i < num_users ? i : -1;
 }
 
 
@@ -292,6 +329,10 @@ pid_t get_tgid(pid_t tid)
         }
       fclose(fp);
     }
+
+  // verify that tgid of tgid is still tgid:
+  assert(tid == tgid || tgid == get_tgid(tgid));
+
   return tgid;
 }
 
@@ -341,6 +382,80 @@ char *get_process_name(pid_t pid, char *buffer, int n)
 
 
 /**
+ * For a given process, determine the real user id of the owner of this process.
+ */
+int get_process_uid(pid_t pid)
+{
+  char path[256];
+  FILE *fp;
+  int uid = -1;
+
+  snprintf(path, sizeof(path), "/proc/%d/status", pid);
+  fp = fopen(path, "r");
+  if (fp != NULL)
+    {
+      char line[256];
+      while (fgets(line, sizeof(line), fp) &&
+             sscanf(line, "Uid: %d", &uid) != 1)
+        {
+        }
+      fclose(fp);
+    }
+  return uid;
+}
+
+
+/**
+ * Get name of given user via getpwuid.
+ *
+ * @param uid the user id
+ *
+ * @param buffer buffer to place the name
+ *
+ * @param n number of chars available in buffer
+ *
+ * @return buffer or NULL in case of an error.
+ */
+char *get_user_name(uid_t uid, char *buffer, int n)
+{
+  char *result = NULL;
+
+  struct passwd *pw = getpwuid(uid);
+  if (pw == NULL)
+    {
+      snprintf(buffer, n, "unknown user %d", uid);
+    }
+  else
+    {
+      strncpy(buffer, pw->pw_name, n);
+      result = buffer;
+    }
+  return result;
+}
+
+
+/**
+ * Check if process pid was already encountered. If not, create and post an
+ * entry of ENTRY_KIND_PROCESS for this process.
+ */
+void add_user(uid_t uid)
+{
+  if (user_index(uid) < 0 && num_users < MAX_NUM_USERS)
+    {
+      user_uids[num_users] = uid;
+      num_users++;
+
+      struct entry en;
+      en.kind = ENTRY_KIND_USER;
+      en.payload.u.uid = uid;
+      get_user_name(uid, (char*)&en.payload.u.name, sizeof(en.payload.u.name));
+      post_entry(&en);
+      fprintf(stderr,"USER %d '%s'\n",uid,en.payload.u.name);
+    }
+}
+
+
+/**
  * Check if process pid was already encountered. If not, create and post an
  * entry of ENTRY_KIND_PROCESS for this process.
  */
@@ -348,11 +463,15 @@ void add_process(pid_t pid)
 {
   if (process_index(pid) < 0 && num_processes < MAX_NUM_PROCESSES)
     {
+      uid_t uid = get_process_uid(pid);
+      add_user(uid);
+
       process_pids[num_processes] = pid;
       num_processes++;
       struct entry en;
       en.kind = ENTRY_KIND_PROCESS;
       en.payload.p.pid = pid;
+      en.payload.p.uid = uid;
       get_process_name(pid, (char*)&en.payload.p.name, sizeof(en.payload.p.name));
       post_entry(&en);
     }
@@ -369,6 +488,7 @@ void add_thread(pid_t tid, char name[16])
     {
       pid_t pid = get_tgid(tid);
       add_process(pid);
+
       thread_tids[num_threads] = tid;
       thread_pids[num_threads] = pid;
       num_threads++;

@@ -33,39 +33,33 @@ import java.util.ArrayList;
 
 
 /**
- * SystemProcess  represents a process in recorded data
+ * SystemUser  represents a user in recorded data
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-class SystemProcess
+class SystemUser
 {
-  int _pid;
   int _uid;
   String _name;
   int _num;
-  SystemUser _user;
-  ArrayList<SystemThread> _threads = new ArrayList<>();
+  ArrayList<SystemProcess> _processes = new ArrayList<>();
 
-  SystemProcess(int pid,
-                int uid,
-                String name,
-                int num,
-                SystemUser u)
+  SystemUser(int uid,
+             String name,
+             int num)
   {
-    _pid = pid;
     _uid = uid;
     _name = name;
     _num = num;
-    _user = u;
   }
 
-  void addThread(SystemThread t)
+  void addProcess(SystemProcess p)
   {
-    _threads.add(t);
+    _processes.add(p);
   }
 
   public String toString()
   {
-    return ""+_pid+" "+_name;
+    return ""+_uid+" "+_name;
   }
 }

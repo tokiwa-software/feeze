@@ -48,8 +48,13 @@ public interface Offsets
   public static int ENTRY_SS_NS_OFFSET       = 0x30;
   public static int ENTRY_SS_COUNT_OFFSET    = 0x38;
 
+  public static int ENTRY_U_UID_OFFSET       = 0x08;
+  public static int ENTRY_U_NAME_OFFSET      = 0x0c;
+  public static int ENTRY_U_NAME_LENGTH      = 0x20;
+
   public static int ENTRY_P_PID_OFFSET       = 0x08;
-  public static int ENTRY_P_NAME_OFFSET      = 0x0c;
+  public static int ENTRY_P_UID_OFFSET       = 0x0c;
+  public static int ENTRY_P_NAME_OFFSET      = 0x10;
   public static int ENTRY_P_NAME_LENGTH      = 0x20;
 
   public static int ENTRY_T_TID_OFFSET       = 0x08;
@@ -61,6 +66,7 @@ public interface Offsets
 
   public static int ENTRY_KIND_UNUSED       = 0;
   public static int ENTRY_KIND_SCHED_SWITCH = 1;
-  public static int ENTRY_KIND_PROCESS      = 2;
-  public static int ENTRY_KIND_THREAD       = 3;
+  public static int ENTRY_KIND_USER         = 2;
+  public static int ENTRY_KIND_PROCESS      = 3;
+  public static int ENTRY_KIND_THREAD       = 4;
 }

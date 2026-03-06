@@ -50,6 +50,9 @@ class Data implements Offsets
   final MappedByteBuffer _b;
   int names_processed = 0;
 
+  TreeMap<Integer, SystemUser> _usersMap = new TreeMap<>();
+  ArrayList<SystemUser> _users = new ArrayList<>();
+
   TreeMap<Integer, SystemProcess> _processesMap = new TreeMap<>();
   ArrayList<SystemProcess> _processes = new ArrayList<>();
 
@@ -199,12 +202,22 @@ class Data implements Offsets
               }
             switch (kind(names_processed))
               {
-              case ENTRY_KIND_UNUSED      : break;
+              case ENTRY_KIND_UNUSED: break;
+              case ENTRY_KIND_USER:
+                {
+                  var uid  = getInt(names_processed, ENTRY_U_UID_OFFSET);
+                  var name = getName(names_processed, ENTRY_U_NAME_OFFSET, ENTRY_U_NAME_LENGTH);
+                  var u = new SystemUser(uid, name, _users.size());
+                  _usersMap.put(uid, u);
+                  _users.add(u);
+                  break;
+                }
               case ENTRY_KIND_PROCESS:
                 {
                   var pid  = getInt(names_processed, ENTRY_P_PID_OFFSET);
+                  var uid  = getInt(names_processed, ENTRY_P_UID_OFFSET);
                   var name = getName(names_processed, ENTRY_P_NAME_OFFSET, ENTRY_P_NAME_LENGTH);
-                  var p = new SystemProcess(pid, name, _processes.size());
+                  var p = new SystemProcess(pid, uid, name, _processes.size(), _usersMap.get(uid));
                   _processesMap.put(pid, p);
                   _processes.add(p);
                   break;
@@ -236,12 +249,15 @@ class Data implements Offsets
             names_processed++;
           }
       }
+    /*
     _threads.sort((t1,t2) ->
                   Long.compare((long) t1._pid << 32 | t1._tid,
                                (long) t2._pid << 32 | t2._tid));
+    */
     _threads.sort((t1,t2) ->
-                  Long.compare((long) t1._p._num << 32 | t1._tid,
-                               (long) t2._p._num << 32 | t2._tid));
+                  t1._p._user._num != t2._p._user._num ? Integer.compare(t1._p._user._num, t2._p._user._num) :
+                  t1._p._num       != t2._p._num       ? Integer.compare(t1._p._num,       t2._p._num      )
+                                                       : Integer.compare(t1._tid,          t2._tid         ));
     for (var n = 0; n < _threads.size(); n++)
       {
         _threads.get(n)._num = n;
