@@ -40,6 +40,8 @@ import javax.swing.JComponent;
 
 import dev.flang.swing.Panorama;
 
+import dev.flang.util.ANY;
+
 /*---------------------------------------------------------------------*/
 
 
@@ -107,8 +109,48 @@ class SchedulingPanorama extends Panorama
   static final Color VERY_DARK_GREEN = new Color(0,63,0);
   static final Color LILAC = new Color(81, 36, 128);
   //  static final Color[] PROCESS_COLS = new Color[] { peach, coral, pink, yellow, green, blue, purple, mizuiro, gray };
-  static final Color[] PROCESS_COLS = new Color[] { bgcol, Color.WHITE };
+  // static final Color[] PROCESS_COLS = new Color[] { bgcol, Color.WHITE };
 
+  // lilac, purple, blue, cyan from normal to very bright
+  static final int[][] TOKIWA_COLORS0 = { { 0x35286f, 0x6c4b99, 0x3da5da, 0x73bfb8 },
+                                          { 0x43338c, 0x7a55ad, 0x3faae0, 0x7bccc5 },
+                                          { 0x503da8, 0x895fc2, 0x41b0e8, 0x83d9d1 },
+                                          { 0x5f48c7, 0x9769d6, 0x43b5f0, 0x8ae6dd },
+                                          { 0x6c52e3, 0xa673eb, 0x45bbf7, 0x92f2e9 },
+                                          { 0x7a5cff, 0xb47dff, 0x47c1ff, 0x9afff6 } };
+  static final Color[][] TOKIWA_COLORS = new Color[TOKIWA_COLORS0.length][TOKIWA_COLORS0[0].length];
+  static
+  {
+    for(var i = 0; i<TOKIWA_COLORS.length; i++)
+      {
+        var a = TOKIWA_COLORS[i];
+        for(var j = 0; j<a.length; j++)
+          {
+            a[j] = new Color(TOKIWA_COLORS0[i][j]);
+          }
+      }
+  }
+  static final Color[][] TOKIWA_COLORS_PALE = new Color[5][4];
+  static
+  {
+    for(var i = 0; i<4; i++)
+      {
+        var c = TOKIWA_COLORS[0][i];
+        int r = c.getRed();
+        int g = c.getGreen();
+        int b = c.getBlue();
+        for (var f = 0; f < 5; f++)
+          {
+            r = Math.min(255, (r + 255)/2);
+            g = Math.min(255, (g + 255)/2);
+            b = Math.min(255, (b + 255)/2);
+            TOKIWA_COLORS_PALE[f][i] = new Color(r,g,b);
+          }
+      }
+  }
+
+  static final Color[] PROCESS_COLS = TOKIWA_COLORS_PALE[1];
+  static final Color[][] PROCESS_COLS2 = TOKIWA_COLORS_PALE;
 
   /*------------------------------  fields  -----------------------------*/
 
@@ -212,7 +254,7 @@ class SchedulingPanorama extends Panorama
   /**
    * Convert index to boot_ns (nanoseconds since boot time)
    */
-  long boot_ns_from_index(int  i          ) { // if (PRECONDITIONS) require(_data.kind(at) == Offsets.ENTRY_KIND_SCHED_SWITCH);
+  long boot_ns_from_index(int  i          ) { if (ANY.PRECONDITIONS) ANY.require(_data.kind(i) == Offsets.ENTRY_KIND_SCHED_SWITCH);
                                               return _data.nanos(i);
                                             }
   /**
@@ -354,6 +396,64 @@ class SchedulingPanorama extends Panorama
 
 
   /*---------------------------------------------------------------------*/
+
+
+  // precalculated results of userNum() and processNum():
+  //
+  int[] _userNums;
+  int[] _processNums;
+
+  /**
+   * The index of the user for given thread index ti.
+   */
+  int userNum(int ti)
+  {
+    if (ANY.PRECONDITIONS) ANY.require
+      (ti >= 0 && ti < numThreads());
+
+    if (_userNums == null)
+      {
+        _userNums = new int[numThreads()];
+        _processNums = new int[numThreads()];
+        SystemUser u = null;
+        int un = -1;
+        SystemProcess p = null;
+        int pn = -1;
+        for (var i = 0; i < numThreads(); i++)
+          {
+            var t = _data._threads.get(i);
+            if (u != t._p._user)
+              {
+                u = t._p._user;
+                un++;
+              }
+            if (p != t._p)
+              {
+                p = t._p;
+                pn++;
+              }
+            _userNums[i] = un;
+            _processNums[i] = pn;
+          }
+      }
+    return _userNums[ti];
+  }
+
+
+  /**
+   * The number of the process of thread with index ti.
+   */
+  int processNum(int ti)
+  {
+    if (ANY.PRECONDITIONS) ANY.require
+      (ti >= 0 && ti < numThreads());
+
+    if (_processNums == null)
+      {
+        var ignore = userNum(ti);
+      }
+    return _processNums[ti];
+  }
 
 
   /**
@@ -645,7 +745,7 @@ class SchedulingPanorama extends Panorama
                 int y = threadY(i);
 
                 int h = threadY(i+1)-y+1;
-                g.setColor(PROCESS_COLS[t._p._num % PROCESS_COLS.length]);
+                g.setColor(PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]);
                 g.fillRect(r.x, y-h/2, r.x+r.width, y+h/2);
 
                 if (!_threadShown[i])
@@ -981,7 +1081,8 @@ class SchedulingPanorama extends Panorama
           var t = _data._threads.get(i);
           var y = threadY(i);
           int h = threadY(i+1)-y+1;
-          var cp = PROCESS_COLS[t._p._num % PROCESS_COLS.length];
+          var cp = false ? PROCESS_COLS[t._p._num % PROCESS_COLS.length]                   // NYI: cleanup when display is stable
+                         : PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)];
           var c = new Color(Math.min(255, Math.max(0, cp.getRed  () + (background.getRed()   - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));
