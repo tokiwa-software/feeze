@@ -111,7 +111,7 @@ class SchedulingPanorama extends Panorama
   //  static final Color[] PROCESS_COLS = new Color[] { peach, coral, pink, yellow, green, blue, purple, mizuiro, gray };
   // static final Color[] PROCESS_COLS = new Color[] { bgcol, Color.WHITE };
 
-  // lilac, purple, blue, cyan from normal to very bright
+  // purple, lilac, blue, cyan from normal to very bright
   static final int[][] TOKIWA_COLORS0 = { { 0x35286f, 0x6c4b99, 0x3da5da, 0x73bfb8 },
                                           { 0x43338c, 0x7a55ad, 0x3faae0, 0x7bccc5 },
                                           { 0x503da8, 0x895fc2, 0x41b0e8, 0x83d9d1 },
@@ -151,6 +151,11 @@ class SchedulingPanorama extends Panorama
 
   static final Color[] PROCESS_COLS = TOKIWA_COLORS_PALE[1];
   static final Color[][] PROCESS_COLS2 = TOKIWA_COLORS_PALE;
+  static final Color[][] PROCESS_COLS3 = { { TOKIWA_COLORS_PALE[1][2], TOKIWA_COLORS_PALE[3][2], TOKIWA_COLORS_PALE[0][2] },   // blue
+                                           { TOKIWA_COLORS_PALE[2][1], TOKIWA_COLORS_PALE[4][1], TOKIWA_COLORS_PALE[0][1] },   // lilac
+                                           { TOKIWA_COLORS_PALE[1][3], TOKIWA_COLORS_PALE[3][3], TOKIWA_COLORS_PALE[0][3] },   // cyan
+                                           { TOKIWA_COLORS_PALE[2][0], TOKIWA_COLORS_PALE[4][0], TOKIWA_COLORS_PALE[0][0] },   // purple
+                                         };
 
   /*------------------------------  fields  -----------------------------*/
 
@@ -201,7 +206,10 @@ class SchedulingPanorama extends Panorama
   /**
    * Cached results for {@code threadY}.
    */
+  int[] _threadYTop;
   int[] _threadY;
+  int[] _threadYBottom;
+
 
 
   /**
@@ -467,6 +475,19 @@ class SchedulingPanorama extends Panorama
   {
     return threadY0(t)+topFrame();
   }
+  int ti(int t)
+  {
+    var l = _threadY.length;
+    return Math.min(l-1, Math.max(0,t));
+  }
+  int threadYTop(int t)
+  {
+    return _threadYTop[ti(t)]+topFrame();
+  }
+  int threadYBottom(int t)
+  {
+    return _threadYBottom[ti(t)]+topFrame();
+  }
   int threadY0(int t)
   {
     assert
@@ -477,15 +498,21 @@ class SchedulingPanorama extends Panorama
     if (_lastThreadSpacing != ts || _lastPixelsPerNano != pixelsPerNano() ||
         _lastX != r.x || _lastW != r.width)
       {
-        _threadY     = new int    [numThreads()];
+        _threadYTop    = new int    [numThreads()];
+        _threadY       = new int    [numThreads()];
+        _threadYBottom = new int    [numThreads()];
         _threadShown = new boolean[numThreads()];
         double y = ts;
         for (var i = 0; i<numThreads(); i++)
           {
             var yd = threadYDelta(i, r);
-            y = y + yd/2;
-            _threadY[i] = (int) y;
-            y = y + yd/2;
+            if (isFirstThreadOfUser(i))
+              {
+                y = y + zoomedUserNameHeight();
+              }
+            _threadYTop   [i] = (int) y; y = y + yd/2;
+            _threadY      [i] = (int) y; y = y + yd/2;
+            _threadYBottom[i] = (int) y;
           }
         _lastThreadSpacing = ts;
         _lastPixelsPerNano = pixelsPerNano();
@@ -543,6 +570,12 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  double zoomedUserNameHeight()
+  {
+    return (double) 2*Zoom.STANDARD_FONT_SIZE;
+  }
+
+
   /**
    * Helper for fading out inactive threads.  For a given thread number i and a
    * visible rectangle r, this gives the zoomed height of the area to be used
@@ -571,7 +604,7 @@ class SchedulingPanorama extends Panorama
       }
     _threadShown[i] = f==1;
     return
-      (isFirstThreadOfUser(i+1) ? zoom((double) 2*Zoom.STANDARD_FONT_SIZE) : 0) +
+      //      (isFirstThreadOfUser(i) ? zoomedUserNameHeight() : 0) +
       //      (isFirstThreadOfProcess(i+1) ? zoom((double) NORMAL_THREAD_SPACING) : 0) +
       (1-f) * zoom((double) MIN_THREAD_SPACING) +
       (  f) * zoom((double) NORMAL_THREAD_SPACING);
@@ -742,11 +775,21 @@ class SchedulingPanorama extends Panorama
                 int drawCnt2 = 0;
                 var last_x = x0;
                 var t = _data._threads.get(i);
-                int y = threadY(i);
+                var y = threadY(i);
+                var yt = threadYTop(i);
+                var yb = threadYBottom(i);
+
+                if (isFirstThreadOfUser(i))
+                  {
+                    var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
+                    g.setColor(fc);
+                    g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
+                  }
 
                 int h = threadY(i+1)-y+1;
-                g.setColor(PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]);
-                g.fillRect(r.x, y-h/2, r.x+r.width, y+h/2);
+                //                g.setColor(PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]);
+                g.setColor(PROCESS_COLS3[((1+userNum(i)) % 2)][processNum(i)%2]);
+                g.fillRect(r.x, yt, r.x+r.width-1, yb);
 
                 if (!_threadShown[i])
                   {
@@ -1080,14 +1123,25 @@ class SchedulingPanorama extends Panorama
         {
           var t = _data._threads.get(i);
           var y = threadY(i);
+          var yt = threadYTop(i);
+          var yb = threadYBottom(i);
           int h = threadY(i+1)-y+1;
-          var cp = false ? PROCESS_COLS[t._p._num % PROCESS_COLS.length]                   // NYI: cleanup when display is stable
-                         : PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)];
+          if (isFirstThreadOfUser(i))
+            {
+              var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
+              g.setColor(fc);
+              g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
+              g.setColor(Color.white);
+              _zoom.drawString(g, t._p._user._name, 3, yt - (int) zoomedUserNameHeight()/6);
+            }
+          var cp = false ? PROCESS_COLS[t._p._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
+                   false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
+                         : PROCESS_COLS3[(1+userNum(i)) % 2][processNum(i)%2];
           var c = new Color(Math.min(255, Math.max(0, cp.getRed  () + (background.getRed()   - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));
           g.setColor(c);
-          g.fillRect(r.x, y-h/2, r.x+r.width-1, y+h/2);
+          g.fillRect(r.x, yt, r.x+r.width-1, yb);
           var from_a = actionAt(t, pr.x);
 
           if (_threadShown[i])
@@ -1097,7 +1151,6 @@ class SchedulingPanorama extends Panorama
               _zoom.drawStringR(g, t.toString(from_a), r.x+r.width-3, y - zoom(2));
               if (isFirstThreadOfUser(i))
                 {
-                  _zoom.drawString(g, t._p._user._name, 3, y - zoom(2) - Zoom.STANDARD_FONT_SIZE);
                 }
             }
           g.setColor(gray);
