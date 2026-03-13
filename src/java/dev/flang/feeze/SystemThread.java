@@ -37,7 +37,7 @@ import java.util.Arrays;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-class SystemThread
+class SystemThread extends FeezeThread
 {
   Data _data;
   int _tid;

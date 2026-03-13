@@ -33,6 +33,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 
+import java.util.ArrayList;
 import java.util.TreeSet;
 
 import javax.swing.JButton;
@@ -394,12 +395,29 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  ArrayList<SystemThread> _threads = null;
+
   /**
    * number of displayed threads
    */
   public int numThreads()
   {
-    return _data._threads.size();
+    if (_threads == null)
+      {
+        _threads = new ArrayList();
+        SystemUser u = null;
+        for (var t : _data._threads)
+          {
+            if (u != t._p._user)
+              {
+                _threads.add(t);    // add cumulative pseudo-thread if needed.
+                u = t._p._user;
+              }
+            _threads.add(t);   // add only if no cumulative pseudo-thread was added
+          }
+      }
+    return _threads.size();
+    // return _data._threads.size();
   }
 
 
@@ -412,7 +430,7 @@ class SchedulingPanorama extends Panorama
       (i >= 0,
        i < numThreads());
 
-    return _data._threads.get(i);
+    return _threads.get(i);
   }
 
 
@@ -499,11 +517,13 @@ class SchedulingPanorama extends Panorama
   }
   int threadYTop(int t)
   {
-    return _threadYTop[ti(t)]+topFrame();
+    var ti = ti(t);
+    return _threadYTop[ti]+topFrame();
   }
   int threadYBottom(int t)
   {
-    return _threadYBottom[ti(t)]+topFrame();
+    var ti = ti(t);
+    return _threadYBottom[ti]+topFrame();
   }
   int threadY0(int t)
   {
