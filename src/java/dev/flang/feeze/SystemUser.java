@@ -39,16 +39,19 @@ import java.util.ArrayList;
  */
 class SystemUser
 {
+  final Data _data;
   int _uid;
   String _name;
   int _num;
   ArrayList<SystemProcess> _processes = new ArrayList<>();
   volatile CumulativeThread _cumulative = null;
 
-  SystemUser(int uid,
+  SystemUser(Data data,
+             int uid,
              String name,
              int num)
   {
+    _data = data;
     _uid = uid;
     _name = name;
     _num = num;

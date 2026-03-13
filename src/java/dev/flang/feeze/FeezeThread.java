@@ -43,15 +43,66 @@ import dev.flang.util.ANY;
 abstract class FeezeThread extends ANY
 {
 
-  FeezeThread()
+  final Data _data;
+  int _num_actions = 0;
+
+  int[] _at = new int[16];
+
+
+  FeezeThread(Data data)
   {
+    _data = data;
   }
 
 
   public abstract SystemUser user();
   public abstract SystemProcess process();
-  public abstract int numActions();
-  public abstract int at(int i);
+
+
+  public int numActions()
+  {
+    return _num_actions;
+  }
+
+  public int at(int i)
+  {
+    if (PRECONDITIONS) require
+      (i >= 0,
+       i < numActions());
+
+    return _at[i];
+  }
+
+  void addAction(int at)
+  {
+    if (_num_actions >= _at.length)
+      {
+        _at = Arrays.copyOf(_at, _at.length*2);
+      }
+    _at[_num_actions] = at;
+    _num_actions++;
+    // fix order to be strictly increasing nanos. This might have gotten mixed
+    // up due to race conditions writing to ring buffers.
+    var n = _num_actions-1;
+    while (n > 0 && (_data.nanos(_at[n]) - _data.nanos(_at[n-1]) < 0))
+      {
+        var x = _at[n]; _at[n] = _at[n-1]; _at[n-1] = x;
+        n--;
+      }
+  }
+
+  public boolean startsRunning(int i)
+  {
+    return this == _data.newThreadAt(at(i));
+  }
+  public boolean continuesRunning(int i)
+  {
+    return startsRunning(i) && stopsRunning(i);
+  }
+  public boolean stopsRunning(int i)
+  {
+    return this == _data.oldThreadAt(at(i));
+  }
 
   /**
    * Name of this thread at given index.  Note that names can change during the

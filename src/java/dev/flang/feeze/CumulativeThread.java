@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package dev.flang.feeze;
 
 import java.util.Arrays;
+import java.util.BitSet;
 
 import dev.flang.util.ANY;
 
@@ -44,10 +45,13 @@ public class CumulativeThread extends FeezeThread
 {
 
   final SystemUser _user;
+  volatile int[] _numRunning;
 
 
   CumulativeThread(SystemUser u)
   {
+    super(u._data);
+
     _user = u;
   }
 
@@ -64,16 +68,102 @@ public class CumulativeThread extends FeezeThread
     return null;
   }
 
-  @Override
-  public int numActions()
+
+
+
+  public int[] numRunning()
   {
-    return 0; // NYI!
+    var result = _numRunning;
+    if (result == null)
+      {
+        synchronized (this)
+          {
+            result = _numRunning;
+            if (result == null)
+              {
+                result = new int[numActions()];
+                _numRunning = result;
+                var n = 0;
+                var covered = new BitSet();
+                var running = new BitSet();
+                var min = 0;
+                for (var i = 0; i<numActions(); i++)
+                  {
+                    var ot = _data.oldThreadAt(at(i));
+                    var nt = _data.newThreadAt(at(i));
+                    if (ot != null && ot.user() == _user)
+                      {
+                        if (running.get(ot._tid) || !covered.get(ot._tid))
+                          {
+                            n--;
+                            running.clear(ot._tid);
+                          }
+                        else
+                          {
+                          }
+                        covered.set(ot._tid);
+                      }
+                    min = Math.min(n, min);
+                    if (nt != null && nt.user() == _user)
+                      {
+                        if (!running.get(nt._tid))
+                          {
+                            n++;
+                            running.set(nt._tid);
+                          }
+                        covered.set(nt._tid);
+                      }
+                    result[i] = n;
+                  }
+
+                // since some threads might have been running from the
+                // beginning, increase the number of threads running such that
+                // it will never be negative:
+                for (var i = 0; i<numActions(); i++)
+                  {
+                    result[i] -= min;
+                    if (false && i < 20) // NYI: DEBUG output, eventually remove this
+                      {
+                        var ot = _data.oldThreadAt(at(i));
+                        var nt = _data.newThreadAt(at(i));
+                        System.out.println("running #"+i+"/"+at(i)+" is "+result[i]+" for "+this+" old: "+ot+" new "+nt);
+                        if (!startsRunning(i) &&
+                            !continuesRunning(i) &&
+                            !stopsRunning(i))
+                          {
+                            System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^yyy!");
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    return result;
+  }
+
+  public int numRunning(int i)
+  {
+    if (PRECONDITIONS) require
+      (0 <= i,
+       i < numActions());
+    var nr = numRunning();
+    return nr[i];
   }
 
   @Override
-  public int at(int i)
+  public boolean startsRunning(int i)
   {
-    throw new Error(); // NYI!
+    return numRunning(i) > 0 && (i == 0 || numRunning(i-1) == 0);
+  }
+  @Override
+  public boolean continuesRunning(int i)
+  {
+    return (numRunning(i) > 0) == (numRunning(i-1) > 0);
+  }
+  @Override
+  public boolean stopsRunning(int i)
+  {
+    return numRunning(i) == 0 && (i == 0 || numRunning(i-1) > 0);
   }
 
   /**

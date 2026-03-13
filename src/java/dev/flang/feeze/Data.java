@@ -207,7 +207,7 @@ class Data implements Offsets
                 {
                   var uid  = getInt(names_processed, ENTRY_U_UID_OFFSET);
                   var name = getName(names_processed, ENTRY_U_NAME_OFFSET, ENTRY_U_NAME_LENGTH);
-                  var u = new SystemUser(uid, name, _users.size());
+                  var u = new SystemUser(this, uid, name, _users.size());
                   _usersMap.put(uid, u);
                   _users.add(u);
                   break;

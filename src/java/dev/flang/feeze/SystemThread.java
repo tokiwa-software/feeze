@@ -39,20 +39,16 @@ import java.util.Arrays;
  */
 class SystemThread extends FeezeThread
 {
-  Data _data;
   int _tid;
   int _pid;
   String _name;
   SystemProcess _p;
   int _num;
 
-  int _num_actions = 0;
-
-  int[] _at = new int[16];
-
   SystemThread(Data data, int tpid, int pid, String name, SystemProcess p)
   {
-    _data = data;
+    super(data);
+
     _tid = tpid;
     _pid = pid;
     _name = name;
@@ -74,39 +70,14 @@ class SystemThread extends FeezeThread
     return _p;
   }
 
-  @Override
-  public int numActions()
-  {
-    return _num_actions;
-  }
 
   @Override
-  public int at(int i)
-  {
-    if (PRECONDITIONS) require
-      (i >= 0,
-       i < numActions());
-
-    return _at[i];
-  }
-
   void addAction(int at)
   {
-    if (_num_actions >= _at.length)
-      {
-        _at = Arrays.copyOf(_at, _at.length*2);
-      }
-    _at[_num_actions] = at;
-    _num_actions++;
-    // fix order to be strictly increasing nanos. This might have gotten mixed
-    // up due to race conditions writing to ring buffers.
-    var n = _num_actions-1;
-    while (n > 0 && (_data.nanos(_at[n]) - _data.nanos(_at[n-1]) < 0))
-      {
-        var x = _at[n]; _at[n] = _at[n-1]; _at[n-1] = x;
-        n--;
-      }
+    super.addAction(at);
+    user().cumulative().addAction(at);
   }
+
 
   @Override
   public String toString(int ai)

@@ -860,16 +860,14 @@ class SchedulingPanorama extends Panorama
                   }
                 for (var a = from_a; a<to_a; a++)
                   {
-                    var a0 = a;
-                    var at = t.at(a);
                     Color nextCol;
                     int nextWidth;
-                    if (t == _data.oldThreadAt(at))
+                    if (t.stopsRunning(a))
                       {
                         nextCol = Color.blue;
                         nextWidth = 1;
                       }
-                    else if (t == _data.newThreadAt(at))
+                    else if (t.startsRunning(a) || t.continuesRunning(a))
                       {
                         nextCol = DARK_GREEN;
                         nextWidth = 15;
@@ -879,14 +877,13 @@ class SchedulingPanorama extends Panorama
                         nextCol = Color.magenta;
                         nextWidth = 20;
                       }
-                    var nl = _data.nanos(at)-_data.nanosMin();
+                    var nl = _data.nanos(t.at(a))-_data.nanosMin();
                     var nr = (a+1 >= t.numActions() ? _data.nanosMax()
                                                     : _data.nanos(t.at(a+1))) -_data.nanosMin();
-                    if (nl > nr)
-                      {
-                        System.out.println("**** events not monotonic: "+nl+" > "+nr+" delta: "+(nl-nr)+"ns for a="+a+" (max "+t.numActions()+") at "+at+"/"+
-                                           (a+1 >= t.numActions() ? -1 : t.at(a+1)));
-                      }
+
+                    if (ANY.CHECKS) ANY.check
+                      (nl <= nr);   // event times should be monotonic increasing
+
                     nr = Math.max(nl,nr); // NYI: REMOVE when it is ensured that time is monotonic!
                     var xl = nanos_to_posx(nl);
                     var xr = nanos_to_posx(nr);
@@ -894,12 +891,12 @@ class SchedulingPanorama extends Panorama
                                                      : _data.nanos(t.at(a+2))) -_data.nanosMin();
                     if (a == 0)
                       {
-                        if (t == _data.oldThreadAt(at))
+                        if (t.stopsRunning(a))
                           {
                             g.setColor(DARK_GREEN);
                             _zoom.drawHLine(g,15,nanos_to_posx(0),y,xl);
                           }
-                        else if (t == _data.newThreadAt(at))
+                        else if (t.startsRunning(a))
                           {
                             g.setColor(Color.blue);
                             _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
@@ -926,18 +923,19 @@ class SchedulingPanorama extends Panorama
                         blurredUpToX = xr;
                       }
 
+                    var a0 = a;
                     if (xr > r.x+r.width)
                       {
                         a = t.numActions();
                       }
                     if (a+1 >= t.numActions())
                       {
-                        if (t == _data.oldThreadAt(at))
+                        if (t.stopsRunning(a0))
                           {
                             g.setColor(Color.blue);
                             _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()));
                           }
-                        else if (t == _data.newThreadAt(at))
+                        else if (t.startsRunning(a0))
                           {
                             g.setColor(DARK_GREEN);
                             _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()));
