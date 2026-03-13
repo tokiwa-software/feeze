@@ -395,7 +395,7 @@ class SchedulingPanorama extends Panorama
   }
 
 
-  ArrayList<SystemThread> _threads = null;
+  ArrayList<FeezeThread> _threads = null;
 
   /**
    * number of displayed threads
@@ -408,10 +408,10 @@ class SchedulingPanorama extends Panorama
         SystemUser u = null;
         for (var t : _data._threads)
           {
-            if (u != t._p._user)
+            if (u != t.user())
               {
-                _threads.add(t);    // add cumulative pseudo-thread if needed.
-                u = t._p._user;
+                _threads.add(t.user().cumulative());    // add cumulative pseudo-thread if needed.
+                u = t.user();
               }
             _threads.add(t);   // add only if no cumulative pseudo-thread was added
           }
@@ -424,7 +424,7 @@ class SchedulingPanorama extends Panorama
   /**
    * Get the displayed thread with index i
    */
-  public SystemThread thread(int i)
+  public FeezeThread thread(int i)
   {
     if (ANY.PRECONDITIONS) ANY.require
       (i >= 0,
@@ -461,14 +461,14 @@ class SchedulingPanorama extends Panorama
         for (var i = 0; i < numThreads(); i++)
           {
             var t = thread(i);
-            if (u != t._p._user)
+            if (u != t.user())
               {
-                u = t._p._user;
+                u = t.user();
                 un++;
               }
-            if (p != t._p)
+            if (p != t.process())
               {
-                p = t._p;
+                p = t.process();
                 pn++;
               }
             _userNums[i] = un;
@@ -625,11 +625,11 @@ class SchedulingPanorama extends Panorama
   {
     var t = thread(i);
     double f = 1.0;
-    if (t._tid == t._pid) // new process, so display it if any of its threads are shown
+    if (i == 0 || thread(i-1).process() != t.process()) // new process, so display it if any of its threads are shown
       {
         f = 0;
         int j = i;
-        while (j < numThreads() && thread(j)._pid == t._tid)
+        while (j < numThreads() && thread(j).process() == t.process())
           {
             f = Math.max(f, blendInFactor(thread(j), r));
             j++;
@@ -662,7 +662,7 @@ class SchedulingPanorama extends Panorama
       {
         var tm1 = thread(i-1);
         var t   = thread(i);
-        return t._p._user != tm1._p._user;
+        return t.user() != tm1.user();
       }
   }
   boolean isFirstThreadOfProcess(int i)
@@ -679,7 +679,7 @@ class SchedulingPanorama extends Panorama
       {
         var tm1 = thread(i-1);
         var t   = thread(i);
-        return t._p != tm1._p;
+        return t.process() != tm1.process();
       }
   }
 
@@ -690,30 +690,34 @@ class SchedulingPanorama extends Panorama
    * and 1 that corresponds to the distance the last event has to the visible
    * area.
    */
-  double blendInFactor(SystemThread t, Rectangle r)
+  double blendInFactor(FeezeThread t, Rectangle r)
   {
-    var til = actionAt(t, r.x        );
-    var tim = actionAt(t, r.x+r.width);
-    var tir = Math.min(t._num_actions-1, tim+1);
-    var il = t._at[til];   // index of action left  of r.x
-    var im = t._at[tim];   // index of action left  of r.x+r.width
-    var ir = t._at[tir];   // index of action right of r.x+r.width
-    double f = 1;
-    if (il == im &&                      // no action within visible area
-        (index_to_posx(il) >= r.x   ||
-         _data.newThreadAt(il) != t   )  // and t is not running
-        )
+    double f = 0;
+    if (t.numActions() > 0)
       {
-        int xl = index_to_posx(il);
-        int xr = index_to_posx(ir);
-        int transition = r.width/2;  // width of the transition area during which we zoom threads in or out
-        var fl = xl <  r.x         ? (double) Math.max(0, transition - (r.x-xl)) / transition :
-                 xl <= r.x+r.width ? 1
-                                   : 0;
-        var fr = xr >  r.x+r.width ? (double) Math.max(0, transition - (xr-r.x-r.width)) / transition :
-                 xr >= r.x         ? 1
-                                   : 0;
-        f = Math.max(fl,fr);
+        var til = actionAt(t, r.x        );
+        var tim = actionAt(t, r.x+r.width);
+        var tir = Math.min(t.numActions()-1, tim+1);
+        var il = t.at(til);   // index of action left  of r.x
+        var im = t.at(tim);   // index of action left  of r.x+r.width
+        var ir = t.at(tir);   // index of action right of r.x+r.width
+        f = 1;
+        if (il == im &&                      // no action within visible area
+            (index_to_posx(il) >= r.x   ||
+             _data.newThreadAt(il) != t   )  // and t is not running
+            )
+          {
+            int xl = index_to_posx(il);
+            int xr = index_to_posx(ir);
+            int transition = r.width/2;  // width of the transition area during which we zoom threads in or out
+            var fl = xl <  r.x         ? (double) Math.max(0, transition - (r.x-xl)) / transition :
+                     xl <= r.x+r.width ? 1
+                                       : 0;
+            var fr = xr >  r.x+r.width ? (double) Math.max(0, transition - (xr-r.x-r.width)) / transition :
+                     xr >= r.x         ? 1
+                                       : 0;
+            f = Math.max(fl,fr);
+          }
       }
     return f;
   }
@@ -742,19 +746,19 @@ class SchedulingPanorama extends Panorama
   /**
    * For a given x position, find the next action left of that position.
    */
-  int actionAt(SystemThread t, int x)
+  int actionAt(FeezeThread t, int x)
   {
     var al = 0;
-    var ar = t._num_actions-1;
+    var ar = t.numActions()-1;
     int res = 0;
     while (al < ar)
       {
         int am = (al+ar)/2;
-        var mx = nanos_to_posx(_data.nanos(t._at[am]) - _data.nanosMin());
+        var mx = nanos_to_posx(_data.nanos(t.at(am)) - _data.nanosMin());
         if (mx <= x) { res = am; al = am+1; }
         if (mx >= x) {           ar = am-1; }
       }
-    while (res < t._num_actions-1 && (nanos_to_posx(_data.nanos(t._at[res+1]) - _data.nanosMin()) <= x))
+    while (res < t.numActions()-1 && (nanos_to_posx(_data.nanos(t.at(res+1)) - _data.nanosMin()) <= x))
       {
         res++;
       }
@@ -825,7 +829,7 @@ class SchedulingPanorama extends Panorama
 
                 int h = threadY(i+1)-y+1;
                 //                g.setColor(PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]);
-                g.setColor(PROCESS_COLS3[((1+userNum(i)) % 2)][processNum(i)%2]);
+                g.setColor(PROCESS_COLS3[((1+userNum(i)) & 1)][processNum(i) & 1]);
                 g.fillRect(r.x, yt, r.x+r.width-1, yb);
 
                 if (!_threadShown[i])
@@ -857,7 +861,7 @@ class SchedulingPanorama extends Panorama
                 for (var a = from_a; a<to_a; a++)
                   {
                     var a0 = a;
-                    var at = t._at[a];
+                    var at = t.at(a);
                     Color nextCol;
                     int nextWidth;
                     if (t == _data.oldThreadAt(at))
@@ -876,18 +880,18 @@ class SchedulingPanorama extends Panorama
                         nextWidth = 20;
                       }
                     var nl = _data.nanos(at)-_data.nanosMin();
-                    var nr = (a+1 >= t._num_actions ? _data.nanosMax()
-                                                    : _data.nanos(t._at[a+1])) -_data.nanosMin();
+                    var nr = (a+1 >= t.numActions() ? _data.nanosMax()
+                                                    : _data.nanos(t.at(a+1))) -_data.nanosMin();
                     if (nl > nr)
                       {
-                        System.out.println("**** events not monotonic: "+nl+" > "+nr+" delta: "+(nl-nr)+"ns for a="+a+" (max "+t._num_actions+") at "+at+"/"+
-                                           (a+1 >= t._num_actions ? -1 : t._at[a+1]));
+                        System.out.println("**** events not monotonic: "+nl+" > "+nr+" delta: "+(nl-nr)+"ns for a="+a+" (max "+t.numActions()+") at "+at+"/"+
+                                           (a+1 >= t.numActions() ? -1 : t.at(a+1)));
                       }
                     nr = Math.max(nl,nr); // NYI: REMOVE when it is ensured that time is monotonic!
                     var xl = nanos_to_posx(nl);
                     var xr = nanos_to_posx(nr);
-                    var nnr = (a+2 >= t._num_actions ? _data.nanosMax()
-                                                     : _data.nanos(t._at[a+2])) -_data.nanosMin();
+                    var nnr = (a+2 >= t.numActions() ? _data.nanosMax()
+                                                     : _data.nanos(t.at(a+2))) -_data.nanosMin();
                     if (a == 0)
                       {
                         if (t == _data.oldThreadAt(at))
@@ -924,9 +928,9 @@ class SchedulingPanorama extends Panorama
 
                     if (xr > r.x+r.width)
                       {
-                        a = t._num_actions;
+                        a = t.numActions();
                       }
-                    if (a+1 >= t._num_actions)
+                    if (a+1 >= t.numActions())
                       {
                         if (t == _data.oldThreadAt(at))
                           {
@@ -1169,11 +1173,11 @@ class SchedulingPanorama extends Panorama
               g.setColor(fc);
               g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
               g.setColor(Color.white);
-              _zoom.drawString(g, t._p._user._name, 3, yt - (int) zoomedUserNameHeight()/6);
+              _zoom.drawString(g, t.user()._name, 3, yt - (int) zoomedUserNameHeight()/6);
             }
-          var cp = false ? PROCESS_COLS[t._p._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
+          var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
                    false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
-                         : PROCESS_COLS3[(1+userNum(i)) % 2][processNum(i)%2];
+                         : PROCESS_COLS3[(1+userNum(i)) & 1][processNum(i) & 1];
           var c = new Color(Math.min(255, Math.max(0, cp.getRed  () + (background.getRed()   - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));

@@ -60,6 +60,36 @@ class SystemThread extends FeezeThread
     _p.addThread(this);
   }
 
+
+  @Override
+  public SystemUser user()
+  {
+    return _p._user;
+  }
+
+
+  @Override
+  public SystemProcess process()
+  {
+    return _p;
+  }
+
+  @Override
+  public int numActions()
+  {
+    return _num_actions;
+  }
+
+  @Override
+  public int at(int i)
+  {
+    if (PRECONDITIONS) require
+      (i >= 0,
+       i < numActions());
+
+    return _at[i];
+  }
+
   void addAction(int at)
   {
     if (_num_actions >= _at.length)
@@ -78,6 +108,7 @@ class SystemThread extends FeezeThread
       }
   }
 
+  @Override
   public String toString(int ai)
   {
     // if (PRECONDITIONS) require
@@ -106,6 +137,7 @@ class SystemThread extends FeezeThread
     // return _tid+" "+n+" ("+_p+")";
   }
 
+  @Override
   public String toString()
   {
     return _num_actions > 0

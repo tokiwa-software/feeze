@@ -20,64 +20,79 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
  *
  * Copyright (c) 2026, Tokiwa Software GmbH, Germany
  *
- * Java source code of class dev.flang.feeze.SystemProcess
+ * Java source code of class dev.flang.feeze.CumulativeThread
  *
  *---------------------------------------------------------------------*/
 
 
 package dev.flang.feeze;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+
+import dev.flang.util.ANY;
 
 /*---------------------------------------------------------------------*/
 
 
 /**
- * SystemUser  represents a user in recorded data
+ * CumulativeThread represents an artificial thread with accumulated data from
+ * several threads.
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-class SystemUser
+public class CumulativeThread extends FeezeThread
 {
-  int _uid;
-  String _name;
-  int _num;
-  ArrayList<SystemProcess> _processes = new ArrayList<>();
-  volatile CumulativeThread _cumulative = null;
 
-  SystemUser(int uid,
-             String name,
-             int num)
-  {
-    _uid = uid;
-    _name = name;
-    _num = num;
-  }
+  final SystemUser _user;
 
-  void addProcess(SystemProcess p)
+
+  CumulativeThread(SystemUser u)
   {
-    _processes.add(p);
+    _user = u;
   }
 
 
-  CumulativeThread cumulative()
+  @Override
+  public SystemUser user()
   {
-    if (_cumulative == null)
-      {
-        synchronized (this)
-          {
-            if (_cumulative == null)
-              {
-                var c = new CumulativeThread(this);
-                _cumulative = c;
-              }
-          }
-      }
-    return _cumulative;
+    return _user;
   }
 
+  @Override
+  public SystemProcess process()
+  {
+    return null;
+  }
+
+  @Override
+  public int numActions()
+  {
+    return 0; // NYI!
+  }
+
+  @Override
+  public int at(int i)
+  {
+    throw new Error(); // NYI!
+  }
+
+  /**
+   * Name of this thread at given index.  Note that names can change during the
+   * lifespan of a thread.
+   */
+  @Override
+  public String toString(int ai)
+  {
+    return toString();
+  }
+
+  /**
+   * Name of this thread.
+   */
+  @Override
   public String toString()
   {
-    return ""+_uid+" "+_name;
+    return _user._name;
   }
+
 }

@@ -29,6 +29,8 @@ package dev.flang.feeze;
 
 import java.util.Arrays;
 
+import dev.flang.util.ANY;
+
 /*---------------------------------------------------------------------*/
 
 
@@ -38,11 +40,23 @@ import java.util.Arrays;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-abstract class FeezeThread
+abstract class FeezeThread extends ANY
 {
 
   FeezeThread()
   {
   }
+
+
+  public abstract SystemUser user();
+  public abstract SystemProcess process();
+  public abstract int numActions();
+  public abstract int at(int i);
+
+  /**
+   * Name of this thread at given index.  Note that names can change during the
+   * lifespan of a thread.
+   */
+  public abstract String toString(int ai);
 
 }
