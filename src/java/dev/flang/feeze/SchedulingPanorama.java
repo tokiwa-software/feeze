@@ -395,11 +395,24 @@ class SchedulingPanorama extends Panorama
 
 
   /**
-   * number of threads
+   * number of displayed threads
    */
   public int numThreads()
   {
     return _data._threads.size();
+  }
+
+
+  /**
+   * Get the displayed thread with index i
+   */
+  public SystemThread thread(int i)
+  {
+    if (ANY.PRECONDITIONS) ANY.require
+      (i >= 0,
+       i < numThreads());
+
+    return _data._threads.get(i);
   }
 
 
@@ -429,7 +442,7 @@ class SchedulingPanorama extends Panorama
         int pn = -1;
         for (var i = 0; i < numThreads(); i++)
           {
-            var t = _data._threads.get(i);
+            var t = thread(i);
             if (u != t._p._user)
               {
                 u = t._p._user;
@@ -477,6 +490,10 @@ class SchedulingPanorama extends Panorama
   }
   int ti(int t)
   {
+    if (_threadY == null)
+      {
+        var ignore = threadY0(t);
+      }
     var l = _threadY.length;
     return Math.min(l-1, Math.max(0,t));
   }
@@ -586,15 +603,15 @@ class SchedulingPanorama extends Panorama
    */
   double threadYDelta(int i, Rectangle r)
   {
-    var t = _data._threads.get(i);
+    var t = thread(i);
     double f = 1.0;
     if (t._tid == t._pid) // new process, so display it if any of its threads are shown
       {
         f = 0;
         int j = i;
-        while (j < numThreads() && _data._threads.get(j)._pid == t._tid)
+        while (j < numThreads() && thread(j)._pid == t._tid)
           {
-            f = Math.max(f, blendInFactor(_data._threads.get(j), r));
+            f = Math.max(f, blendInFactor(thread(j), r));
             j++;
           }
       }
@@ -617,14 +634,14 @@ class SchedulingPanorama extends Panorama
       {
         return true;
       }
-    else if (i >= _data._threads.size())
+    else if (i >= numThreads())
       {
         return false;
       }
     else
       {
-        var tm1 = _data._threads.get(i-1);
-        var t   = _data._threads.get(i);
+        var tm1 = thread(i-1);
+        var t   = thread(i);
         return t._p._user != tm1._p._user;
       }
   }
@@ -634,14 +651,14 @@ class SchedulingPanorama extends Panorama
       {
         return true;
       }
-    else if (i >= _data._threads.size())
+    else if (i >= numThreads())
       {
         return false;
       }
     else
       {
-        var tm1 = _data._threads.get(i-1);
-        var t   = _data._threads.get(i);
+        var tm1 = thread(i-1);
+        var t   = thread(i);
         return t._p != tm1._p;
       }
   }
@@ -691,7 +708,7 @@ class SchedulingPanorama extends Panorama
   int threadAt(int y)
   {
     var res = 0;
-    while (res < numThreads()-1 && y > threadY(res))
+    while (res <= numThreads()-1 && y > threadYBottom(res))
       {
         res++;
       }
@@ -774,7 +791,7 @@ class SchedulingPanorama extends Panorama
                 int drawCnt = 0;
                 int drawCnt2 = 0;
                 var last_x = x0;
-                var t = _data._threads.get(i);
+                var t = thread(i);
                 var y = threadY(i);
                 var yt = threadYTop(i);
                 var yb = threadYBottom(i);
@@ -1121,7 +1138,7 @@ class SchedulingPanorama extends Panorama
 
       for (var i = Math.max(0, threadAt(r.y)-1); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
         {
-          var t = _data._threads.get(i);
+          var t = thread(i);
           var y = threadY(i);
           var yt = threadYTop(i);
           var yb = threadYBottom(i);
