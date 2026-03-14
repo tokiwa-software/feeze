@@ -66,6 +66,6 @@ class SystemProcess
 
   public String toString()
   {
-    return ""+_pid+" "+_name;
+    return _name; // +  " (#" + _pid + ")";
   }
 }

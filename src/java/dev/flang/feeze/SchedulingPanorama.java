@@ -210,6 +210,10 @@ class SchedulingPanorama extends Panorama
   /**
    * Cached results for {@code threadY}.
    */
+  volatile int[] _threadYUserTop;
+  volatile int[] _threadYUserBot;
+  volatile int[] _threadYProcTop;
+  volatile int[] _threadYProcBot;
   volatile int[] _threadYTop;
   volatile int[] _threadY;
   volatile int[] _threadYBottom;
@@ -534,6 +538,26 @@ class SchedulingPanorama extends Panorama
     var l = _threadY.length;
     return Math.min(l-1, Math.max(0,t));
   }
+  int threadYUserTop(int t)
+  {
+    var ti = ti(t);
+    return _threadYUserTop[ti]+topFrame();
+  }
+  int threadYUserBot(int t)
+  {
+    var ti = ti(t);
+    return _threadYUserBot[ti]+topFrame();
+  }
+  int threadYProcTop(int t)
+  {
+    var ti = ti(t);
+    return _threadYProcTop[ti]+topFrame();
+  }
+  int threadYProcBot(int t)
+  {
+    var ti = ti(t);
+    return _threadYProcBot[ti]+topFrame();
+  }
   int threadYTop(int t)
   {
     var ti = ti(t);
@@ -557,18 +581,31 @@ class SchedulingPanorama extends Panorama
       {
         synchronized (SchedulingPanorama.this)
           {
-            _threadYTop    = new int    [numThreads()];
-            _threadY       = new int    [numThreads()];
-            _threadYBottom = new int    [numThreads()];
-            _threadShown = new boolean[numThreads()];
+            _threadYUserTop = new int    [numThreads()];
+            _threadYUserBot = new int    [numThreads()];
+            _threadYProcTop = new int    [numThreads()];
+            _threadYProcBot = new int    [numThreads()];
+            _threadYTop     = new int    [numThreads()];
+            _threadY        = new int    [numThreads()];
+            _threadYBottom  = new int    [numThreads()];
+            _threadShown    = new boolean[numThreads()];
             double y = ts;
             for (var i = 0; i<numThreads(); i++)
               {
+                var ti = thread(i);
                 var yd = threadYDelta(i, r);
+                _threadYUserTop[i] = (int) y;
                 if (isFirstThreadOfUser(i))
                   {
                     y = y + zoomedUserNameHeight();
                   }
+                _threadYUserBot[i] = (int) y;
+                _threadYProcTop[i] = (int) y;
+                if (isFirstThreadOfProcess(i) && !ti.isProcess())
+                  {
+                    y = y + zoomedUserNameHeight();
+                  }
+                _threadYProcBot[i] = (int) y;
                 _threadYTop   [i] = (int) y; y = y + yd/2;
                 _threadY      [i] = (int) y; y = y + yd/2;
                 _threadYBottom[i] = (int) y;
@@ -840,20 +877,24 @@ class SchedulingPanorama extends Panorama
                 var last_x = x0;
                 var t = thread(i);
                 var y = threadY(i);
+                var yusert = threadYUserTop(i);
+                var yuserb = threadYUserBot(i);
+                var yproct = threadYProcTop(i);
+                var yprocb = threadYProcBot(i);
                 var yt = threadYTop(i);
                 var yb = threadYBottom(i);
 
-                if (isFirstThreadOfUser(i))
+                if (yusert < yuserb)
                   {
                     var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
                     g.setColor(fc);
-                    g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
+                    g.fillRect(r.x, yusert, r.width, yuserb-yusert);
                   }
 
                 int h = threadY(i+1)-y+1;
                 //                g.setColor(PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]);
                 g.setColor(PROCESS_COLS3[((1+userNum(i)) & 1)][processNum(i) & 1]);
-                g.fillRect(r.x, yt, r.x+r.width-1, yb);
+                g.fillRect(r.x, yproct, r.width, yb-yproct);
 
                 if (!_threadShown[i])
                   {
@@ -1185,7 +1226,7 @@ class SchedulingPanorama extends Panorama
                 var ti = threadAt(y);
                 if (ti <= numThreads() &&
                     isFirstThreadOfUser(ti) &&
-                    y <= threadYTop(ti))
+                    y <= threadYUserBot(ti))
                   {
                     var u = thread(ti).user();
                     synchronized (SchedulingPanorama.this)
@@ -1242,7 +1283,7 @@ class SchedulingPanorama extends Panorama
       var background = new Color(192, 192, 255); // bright blue background
       var backgroundave = (background.getRed() + background.getGreen() + background.getBlue())/3;
       var backgroundfactor = 32;
-      var r = g.getClipBounds();
+      var r = g.getClipBounds(); // NYI: Remove! Should not be needed, and really not added to coordinates!
       g.setColor(background);
       g.fillRect(r.x, r.y, r.width, r.height);
       g.setColor(gray);
@@ -1253,17 +1294,21 @@ class SchedulingPanorama extends Panorama
         {
           var t = thread(i);
           var y = threadY(i);
+          var yusertop = threadYUserTop(i);
+          var yuserbot = threadYUserBot(i);
+          var yproctop = threadYProcTop(i);
+          var yprocbot = threadYProcBot(i);
           var yt = threadYTop(i);
           var yb = threadYBottom(i);
           int h = threadY(i+1)-y+1;
-          if (isFirstThreadOfUser(i))
+          if (yusertop < yuserbot)
             {
               var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
               g.setColor(fc);
-              g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
+              g.fillRect(r.x, yusertop, r.width, yuserbot-yusertop);
               var u = t.user();
               g.setColor(_usersEnabled[u._num] ? Color.white : Color.black);
-              _zoom.drawString(g, u._name, 3, yt - (int) zoomedUserNameHeight()/6);
+              _zoom.drawString(g, u._name, 3, yuserbot - (int) zoomedUserNameHeight()/6);
             }
           var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
                    false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
@@ -1272,17 +1317,19 @@ class SchedulingPanorama extends Panorama
                             Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
                             Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));
           g.setColor(c);
-          g.fillRect(r.x, yt, r.x+r.width-1, yb);
+          g.fillRect(r.x, yuserbot, r.width, yb-yuserbot);
           var from_a = actionAt(t, pr.x);
 
           if (_threadShown[i])
             {
               g.setColor(gray);
               g.setFont(_zoom.standardFont());
-              _zoom.drawStringR(g, t.toString(from_a), r.x+r.width-3, y - zoom(2));
-              if (isFirstThreadOfUser(i))
+              if (yproctop < yprocbot)
                 {
+                  _zoom.drawString(g, t.process().toString(), 12, yprocbot - (int) zoomedUserNameHeight()/6);
                 }
+              var indent = (yproctop == yprocbot) && isFirstThreadOfProcess(i) ? 12 : 24;
+              _zoom.drawString(g, t.toString(from_a), indent, y - zoom(2));
             }
           g.setColor(gray);
           _zoom.drawHLine(g,1,r.x,y,r.x+r.width);

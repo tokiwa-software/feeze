@@ -91,6 +91,13 @@ abstract class FeezeThread extends ANY
       }
   }
 
+
+  /**
+   * Is this a thread that represents a process?
+   */
+  public abstract boolean isProcess();
+
+
   public boolean startsRunning(int i)
   {
     return this == _data.newThreadAt(at(i));

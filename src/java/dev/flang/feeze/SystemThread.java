@@ -78,6 +78,12 @@ class SystemThread extends FeezeThread
     user().cumulative().addAction(at);
   }
 
+  @Override
+  public boolean isProcess()
+  {
+    return _tid == _p._pid;
+  }
+
 
   @Override
   public String toString(int ai)
@@ -97,7 +103,7 @@ class SystemThread extends FeezeThread
       {
         n = _data.old_name(at);
       }
-    if (_tid == _p._pid && !n.equals(_p._name))
+    if (isProcess() && !n.equals(_p._name))
       {
         return n+" ("+_p._name+")";
       }

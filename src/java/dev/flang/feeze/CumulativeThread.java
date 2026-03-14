@@ -68,7 +68,11 @@ public class CumulativeThread extends FeezeThread
     return null;
   }
 
-
+  @Override
+  public boolean isProcess()
+  {
+    return true;
+  }
 
 
   public int[] numRunning()
