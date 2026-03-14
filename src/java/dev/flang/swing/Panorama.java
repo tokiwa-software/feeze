@@ -31,7 +31,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Rectangle;
-import java.awt.event.MouseEvent;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -384,7 +383,7 @@ public abstract class Panorama extends JPanel
    * rememberCenter records the data position of the center of the visible
    * area.
    */
-  void rememberCenter()
+  public void rememberCenter()
   {
     var r = getVisibleRect();
     rememberPosForScaling(r.width  / 2 - getX(),

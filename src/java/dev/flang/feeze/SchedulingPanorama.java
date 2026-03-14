@@ -33,6 +33,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 
+import java.awt.event.MouseEvent;
+
 import java.util.ArrayList;
 import java.util.TreeSet;
 
@@ -165,6 +167,7 @@ class SchedulingPanorama extends Panorama
    * the data.
    */
   final Data _data;
+  final boolean[] _usersEnabled;
 
 
   final Zoom _zoom = new Zoom();
@@ -207,9 +210,9 @@ class SchedulingPanorama extends Panorama
   /**
    * Cached results for {@code threadY}.
    */
-  int[] _threadYTop;
-  int[] _threadY;
-  int[] _threadYBottom;
+  volatile int[] _threadYTop;
+  volatile int[] _threadY;
+  volatile int[] _threadYBottom;
 
 
 
@@ -231,6 +234,7 @@ class SchedulingPanorama extends Panorama
   {
     super(b1,b2,b3,b4);
     _data = data;
+    _usersEnabled = new boolean[_data._users.size()];
   }
 
 
@@ -395,7 +399,7 @@ class SchedulingPanorama extends Panorama
   }
 
 
-  ArrayList<FeezeThread> _threads = null;
+  volatile ArrayList<FeezeThread> _threads = null;
 
   /**
    * number of displayed threads
@@ -404,16 +408,31 @@ class SchedulingPanorama extends Panorama
   {
     if (_threads == null)
       {
-        _threads = new ArrayList();
-        SystemUser u = null;
-        for (var t : _data._threads)
+        synchronized (SchedulingPanorama.this)
           {
-            if (u != t.user())
+            if (_threads == null)
               {
-                _threads.add(t.user().cumulative());    // add cumulative pseudo-thread if needed.
-                u = t.user();
+                _threads = new ArrayList();
+                SystemUser u = null;
+                for (var t : _data._threads)
+                  {
+                    var u2 = t.user();
+                    if (u != u2)
+                      {
+                        u = u2;
+                        if (!_usersEnabled[u._num])
+                          {
+                            _threads.add(u.cumulative());    // add cumulative pseudo-thread if needed.
+                          }
+                      }
+                    if (_usersEnabled[u._num])
+                      {
+                        _threads.add(t);   // add only if no cumulative pseudo-thread was added
+                      }
+                  }
+                _threadY = null;
+                _userNums = null;
               }
-            _threads.add(t);   // add only if no cumulative pseudo-thread was added
           }
       }
     return _threads.size();
@@ -533,28 +552,32 @@ class SchedulingPanorama extends Panorama
     var r = getVisibleRect(); // NYI: make this an argument
     var ts = SCALA_IN_MAIN_AREA ? 2*zoom(NORMAL_THREAD_SPACING) : 0;
     if (_lastThreadSpacing != ts || _lastPixelsPerNano != pixelsPerNano() ||
-        _lastX != r.x || _lastW != r.width)
+        _lastX != r.x || _lastW != r.width ||
+        _threadY == null)
       {
-        _threadYTop    = new int    [numThreads()];
-        _threadY       = new int    [numThreads()];
-        _threadYBottom = new int    [numThreads()];
-        _threadShown = new boolean[numThreads()];
-        double y = ts;
-        for (var i = 0; i<numThreads(); i++)
+        synchronized (SchedulingPanorama.this)
           {
-            var yd = threadYDelta(i, r);
-            if (isFirstThreadOfUser(i))
+            _threadYTop    = new int    [numThreads()];
+            _threadY       = new int    [numThreads()];
+            _threadYBottom = new int    [numThreads()];
+            _threadShown = new boolean[numThreads()];
+            double y = ts;
+            for (var i = 0; i<numThreads(); i++)
               {
-                y = y + zoomedUserNameHeight();
+                var yd = threadYDelta(i, r);
+                if (isFirstThreadOfUser(i))
+                  {
+                    y = y + zoomedUserNameHeight();
+                  }
+                _threadYTop   [i] = (int) y; y = y + yd/2;
+                _threadY      [i] = (int) y; y = y + yd/2;
+                _threadYBottom[i] = (int) y;
               }
-            _threadYTop   [i] = (int) y; y = y + yd/2;
-            _threadY      [i] = (int) y; y = y + yd/2;
-            _threadYBottom[i] = (int) y;
+            _lastThreadSpacing = ts;
+            _lastPixelsPerNano = pixelsPerNano();
+            _lastX = r.x;
+            _lastW = r.width;
           }
-        _lastThreadSpacing = ts;
-        _lastPixelsPerNano = pixelsPerNano();
-        _lastX = r.x;
-        _lastW = r.width;
       }
 
     var l = _threadY.length;
@@ -704,7 +727,7 @@ class SchedulingPanorama extends Panorama
         f = 1;
         if (il == im &&                      // no action within visible area
             (index_to_posx(il) >= r.x   ||
-             _data.newThreadAt(il) != t   )  // and t is not running
+             _data.newThreadAt(il) != t && !(t instanceof CumulativeThread)  )  // and t is not running
             )
           {
             int xl = index_to_posx(il);
@@ -1143,6 +1166,74 @@ class SchedulingPanorama extends Panorama
     public ThreadNames()
     {
       setPreferredSize(new java.awt.Dimension(_zoom.STANDARD_FONT_SIZE*10, 1));
+      addMouseListener(new java.awt.event.MouseListener()
+        {
+
+          @Override
+          public void mouseReleased(MouseEvent e)
+          {
+          }
+
+          public void mouseClicked(MouseEvent e)
+          {
+            var x = e.getX();
+            var y = e.getY();
+            var c = e.getComponent();
+            if (x >= 0 && x < c.getWidth() &&
+                y >= 0 && y < c.getHeight()   )
+              {
+                var ti = threadAt(y);
+                if (ti <= numThreads() &&
+                    isFirstThreadOfUser(ti) &&
+                    y <= threadYTop(ti))
+                  {
+                    var u = thread(ti).user();
+                    synchronized (SchedulingPanorama.this)
+                      {
+                        _usersEnabled[u._num] = !_usersEnabled[u._num];
+                        _threads = null;
+                      }
+                    c.repaint();
+
+                    // NYI: The following two calls should be just one call to recalculate the dimensions:
+                    SchedulingPanorama.this.rememberCenter();
+                    SchedulingPanorama.this.recallPos();
+                  }
+              }
+          }
+
+          @Override
+          public void mouseEntered(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseExited(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mousePressed(MouseEvent e)
+          {
+          }
+
+        });
+      addMouseMotionListener(new java.awt.event.MouseMotionListener()
+        {
+
+          @Override
+          public void mouseMoved(MouseEvent e)
+          {
+            //            System.out.println("mouse moved: "+e);
+          }
+
+          @Override
+          public void mouseDragged(MouseEvent e)
+          {
+            //            System.out.println("mouse dragged: "+e);
+          }
+
+        });
     }
 
     protected void paintComponent(Graphics g)
@@ -1170,8 +1261,9 @@ class SchedulingPanorama extends Panorama
               var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
               g.setColor(fc);
               g.fillRect(r.x, yt-(int) zoomedUserNameHeight(), r.x+r.width-1, yt);
-              g.setColor(Color.white);
-              _zoom.drawString(g, t.user()._name, 3, yt - (int) zoomedUserNameHeight()/6);
+              var u = t.user();
+              g.setColor(_usersEnabled[u._num] ? Color.white : Color.black);
+              _zoom.drawString(g, u._name, 3, yt - (int) zoomedUserNameHeight()/6);
             }
           var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
                    false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
