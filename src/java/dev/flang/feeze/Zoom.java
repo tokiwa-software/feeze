@@ -190,15 +190,44 @@ class Zoom
   void drawHLine(Graphics g,
                  int width,
                  int x1,
-                 int y1,
+                 int y,
                  int x2)
   {
     width = zoom(width);
-    y1 -= width/2;
+    y -= width/2;
     for (int i=0; i<width; i++)
       {
-        g.drawLine(x1, y1+i,
-                   x2, y1+i);
+        g.drawLine(x1, y+i,
+                   x2, y+i);
+      }
+  }
+
+
+  /**
+   * draws vertical line
+   *
+   * @param g graphics environment
+   *
+   * @param width the unzoomed width of the line
+   *
+   * @param x the zoomed (!) x coordinate of the start
+   *
+   * @param y1 the zoomed (!) y coordinate of the start
+   *
+   * @param y2 the zoomed (!) y coordinate of the end
+   */
+  void drawVLine(Graphics g,
+                 int width,
+                 int x,
+                 int y1,
+                 int y2)
+  {
+    width = zoom(width);
+    x -= width/2;
+    for (int i=0; i<width; i++)
+      {
+        g.drawLine(x+i, y1,
+                   x+i, y2);
       }
   }
 

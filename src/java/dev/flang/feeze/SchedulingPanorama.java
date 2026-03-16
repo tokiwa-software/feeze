@@ -739,7 +739,7 @@ class SchedulingPanorama extends Panorama
       {
         var tm1 = thread(i-1);
         var t   = thread(i);
-        return t.process() != tm1.process();
+        return t instanceof CumulativeThread || t.process() != tm1.process();
       }
   }
 
@@ -1277,8 +1277,15 @@ class SchedulingPanorama extends Panorama
         });
     }
 
+    static final int GAP_BETWEEN_VERTICAL_LINES = 12;
+
     protected void paintComponent(Graphics g)
     {
+      var indent1 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES    );
+      var indent2 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 2);
+      var indent3 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 3);
+      var indent4 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 4);
+
       var pr = SchedulingPanorama.this.getVisibleRect();
       var background = new Color(192, 192, 255); // bright blue background
       var backgroundave = (background.getRed() + background.getGreen() + background.getBlue())/3;
@@ -1290,7 +1297,8 @@ class SchedulingPanorama extends Panorama
       g.drawLine(r.x+r.width-1, r.y,
                  r.x+r.width-1, r.y+r.height);
 
-      for (var i = Math.max(0, threadAt(r.y)-1); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
+      var i = Math.max(0, threadAt(r.y)-1);
+      for (; threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
         {
           var t = thread(i);
           var y = threadY(i);
@@ -1319,22 +1327,74 @@ class SchedulingPanorama extends Panorama
           g.setColor(c);
           g.fillRect(r.x, yuserbot, r.width, yb-yuserbot);
           var from_a = actionAt(t, pr.x);
-
           if (_threadShown[i])
             {
               g.setColor(gray);
               g.setFont(_zoom.standardFont());
               if (yproctop < yprocbot)
                 {
-                  _zoom.drawString(g, t.process().toString(), 12, yprocbot - (int) zoomedUserNameHeight()/6);
+                  _zoom.drawString(g, t.process().toString(), indent2, yprocbot - (int) zoomedUserNameHeight()/3);
+                  _zoom.drawString(g, t.toString(from_a), indent3, y - zoom(2));
                 }
-              var indent = (yproctop == yprocbot) && isFirstThreadOfProcess(i) ? 12 : 24;
-              _zoom.drawString(g, t.toString(from_a), indent, y - zoom(2));
+              else if (isFirstThreadOfProcess(i))
+                {
+                  _zoom.drawString(g, t.toString(from_a), indent2, y - zoom(2));
+                }
+              else
+                {
+                  _zoom.drawString(g, t.toString(from_a), indent3, y - zoom(2));
+                }
             }
           g.setColor(gray);
-          _zoom.drawHLine(g,1,r.x,y,r.x+r.width);
+          _zoom.drawHLine(g,1,isFirstThreadOfProcess(i) ? indent1 : indent2, y, getWidth());
+          verticalForProcess(g, i, indent2);
+          verticalForUser   (g, i, indent1);
         }
+      var j = i;
+      while (!(j+1 >= numThreads() || isFirstThreadOfProcess(j+1)))
+        {
+          j++;
+        }
+      verticalForProcess(g, j, indent2);
+
+      var k = i;
+      while (!(k+1 >= numThreads() || isFirstThreadOfUser(k+1)))
+        {
+          k++;
+        }
+      verticalForUser(g, k, indent1);
     }
+  }
+
+  void verticalForProcess(Graphics g, int i, int indent2)
+  {
+    if (i+1 >= numThreads() || isFirstThreadOfProcess(i+1))
+      {
+        var f = i;
+        while (f > 0 && !isFirstThreadOfProcess(f) && !isFirstThreadOfUser(f))
+          {
+            f--;
+          }
+        _zoom.drawVLine(g, 1, indent2, threadY(f), threadY(i));
+      }
+  }
+
+  void verticalForUser(Graphics g, int i, int indent1)
+  {
+    if (i+1 >= numThreads() || isFirstThreadOfUser(i+1))
+      {
+        var j = i;
+        while (j > 0 && !isFirstThreadOfProcess(j))
+          {
+            j--;
+          }
+        var k = j;
+        while (k > 0 && !isFirstThreadOfUser(k))
+          {
+            k--;
+          }
+        _zoom.drawVLine(g, 1, indent1, threadYUserBot(k), threadY(j));
+      }
   }
 
 
