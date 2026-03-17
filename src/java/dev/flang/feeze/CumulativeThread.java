@@ -186,7 +186,7 @@ public class CumulativeThread extends FeezeThread
   @Override
   public String toString()
   {
-    return _user._name;
+    return "all "+_user._name;
   }
 
 }

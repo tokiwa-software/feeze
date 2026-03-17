@@ -68,6 +68,14 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * Verical lines are used to show tree of users, processes and threads.  This
+   * gives the number of unzoomed pixels between these lines.  This value is
+   * used to size decorations like the fold/unfold buttons.
+   */
+  static final int GAP_BETWEEN_VERTICAL_LINES = 12;
+
+
+  /**
    * Distance between two thread lines of faded-out threads when zoom factor is
    * 1.0.
    */
@@ -581,6 +589,8 @@ class SchedulingPanorama extends Panorama
       {
         synchronized (SchedulingPanorama.this)
           {
+            var changed = false;
+            var tY_old = _threadY;
             _threadYUserTop = new int    [numThreads()];
             _threadYUserBot = new int    [numThreads()];
             _threadYProcTop = new int    [numThreads()];
@@ -594,26 +604,38 @@ class SchedulingPanorama extends Panorama
               {
                 var ti = thread(i);
                 var yd = threadYDelta(i, r);
+                if (i > 0 && isFirstThreadOfProcess(i))
+                  { // if previous thread is not shown, and current is a shown process, keep some distance for better appearance.
+                    y = Math.max(y, (int) _threadY[i-1] + yd/2*blendInFactor(i, r));
+                    _threadYBottom[i-1] = (int) y;
+                  }
                 _threadYUserTop[i] = (int) y;
                 if (isFirstThreadOfUser(i))
                   {
-                    y = y + zoomedUserNameHeight();
+                    y = y + Math.max(zoomedUserNameHeight(),
+                                     (int) _zoom.zoom(1.5*GAP_BETWEEN_VERTICAL_LINES));
                   }
                 _threadYUserBot[i] = (int) y;
                 _threadYProcTop[i] = (int) y;
                 if (isFirstThreadOfProcess(i) && !ti.isProcess())
                   {
-                    y = y + zoomedUserNameHeight();
+                    y = y + zoomedUserNameHeight() * blendInFactor(i, r);
                   }
                 _threadYProcBot[i] = (int) y;
-                _threadYTop   [i] = (int) y; y = y + yd/2;
-                _threadY      [i] = (int) y; y = y + yd/2;
-                _threadYBottom[i] = (int) y;
+                _threadYTop    [i] = (int) y; y = y + yd/2;
+                _threadY       [i] = (int) y; y = y + yd/2;
+                _threadYBottom [i] = (int) y;
+                changed = changed || tY_old == null || tY_old.length != _threadY.length || tY_old[i] != _threadY[i];
               }
             _lastThreadSpacing = ts;
             _lastPixelsPerNano = pixelsPerNano();
             _lastX = r.x;
             _lastW = r.width;
+            if (changed)
+              {
+                javax.swing.SwingUtilities.invokeLater(this::repaint);
+                javax.swing.SwingUtilities.invokeLater(_leftRuler::repaint);
+              }
           }
       }
 
@@ -683,22 +705,7 @@ class SchedulingPanorama extends Panorama
    */
   double threadYDelta(int i, Rectangle r)
   {
-    var t = thread(i);
-    double f = 1.0;
-    if (i == 0 || thread(i-1).process() != t.process()) // new process, so display it if any of its threads are shown
-      {
-        f = 0;
-        int j = i;
-        while (j < numThreads() && thread(j).process() == t.process())
-          {
-            f = Math.max(f, blendInFactor(thread(j), r));
-            j++;
-          }
-      }
-    else
-      {
-        f = blendInFactor(t, r);
-      }
+    var f = blendInFactor(i, r);
     _threadShown[i] = f==1;
     return
       //      (isFirstThreadOfUser(i) ? zoomedUserNameHeight() : 0) +
@@ -749,8 +756,10 @@ class SchedulingPanorama extends Panorama
    * visible rectangle r.  If so, return 1, otherwise, return a factor between 0
    * and 1 that corresponds to the distance the last event has to the visible
    * area.
+   *
+   * This gives a raw value for each thread without looking at other threads.
    */
-  double blendInFactor(FeezeThread t, Rectangle r)
+  double blendInFactorRaw(FeezeThread t, Rectangle r)
   {
     double f = 0;
     if (t.numActions() > 0)
@@ -782,6 +791,34 @@ class SchedulingPanorama extends Panorama
     return f;
   }
 
+
+  /**
+   * The blend in factor as returnd by blendInFactorRaw but for any first thread
+   * of a process, this is the max fator of all threads of this process to make
+   * sure that the process name will be displayed.
+   *
+   * This gives a raw value for each thread without looking at other threads.
+   */
+  double blendInFactor(int i, Rectangle r)
+  {
+    var t = thread(i);
+    double f = 1.0;
+    if (isFirstThreadOfProcess(i)) // new process, so display it if any of its threads are shown
+      {
+        f = 0;
+        int j = i;
+        while (j < numThreads() && thread(j).process() == t.process())
+          {
+            f = Math.max(f, blendInFactorRaw(thread(j), r));
+            j++;
+          }
+      }
+    else
+      {
+        f = blendInFactorRaw(t, r);
+      }
+    return f;
+  }
 
   /**
    * Return the thread at the given y posisition.  Returns 0 if y is above all
@@ -1224,21 +1261,18 @@ class SchedulingPanorama extends Panorama
                 y >= 0 && y < c.getHeight()   )
               {
                 var ti = threadAt(y);
-                if (ti <= numThreads() &&
+                var u = thread(ti).user();
+                if (ti <= numThreads()      &&
                     isFirstThreadOfUser(ti) &&
-                    y <= threadYUserBot(ti))
+                    y < threadYUserBot(ti)      )
                   {
-                    var u = thread(ti).user();
                     synchronized (SchedulingPanorama.this)
                       {
                         _usersEnabled[u._num] = !_usersEnabled[u._num];
                         _threads = null;
                       }
                     c.repaint();
-
-                    // NYI: The following two calls should be just one call to recalculate the dimensions:
-                    SchedulingPanorama.this.rememberCenter();
-                    SchedulingPanorama.this.recallPos();
+                    SchedulingPanorama.this.repaint();
                   }
               }
           }
@@ -1277,14 +1311,12 @@ class SchedulingPanorama extends Panorama
         });
     }
 
-    static final int GAP_BETWEEN_VERTICAL_LINES = 12;
-
     protected void paintComponent(Graphics g)
     {
-      var indent1 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES    );
-      var indent2 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 2);
-      var indent3 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 3);
-      var indent4 = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 4);
+      var gapQuart     = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 0.25);  // one quarter of the gap between lines
+      var userLineX   = (int) ( 4 * gapQuart);
+      var procLineX   = (int) ( 8 * gapQuart);
+      var threadNameX = (int) (12 * gapQuart);
 
       var pr = SchedulingPanorama.this.getVisibleRect();
       var background = new Color(192, 192, 255); // bright blue background
@@ -1309,14 +1341,15 @@ class SchedulingPanorama extends Panorama
           var yt = threadYTop(i);
           var yb = threadYBottom(i);
           int h = threadY(i+1)-y+1;
+          SystemUser u = null;
           if (yusertop < yuserbot)
             {
               var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
               g.setColor(fc);
               g.fillRect(r.x, yusertop, r.width, yuserbot-yusertop);
-              var u = t.user();
-              g.setColor(_usersEnabled[u._num] ? Color.white : Color.black);
-              _zoom.drawString(g, u._name, 3, yuserbot - (int) zoomedUserNameHeight()/6);
+              u = t.user();
+              g.setColor(Color.white);
+              _zoom.drawString(g, u._name, procLineX, yuserbot - (int) zoomedUserNameHeight()/6);
             }
           var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
                    false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
@@ -1333,40 +1366,67 @@ class SchedulingPanorama extends Panorama
               g.setFont(_zoom.standardFont());
               if (yproctop < yprocbot)
                 {
-                  _zoom.drawString(g, t.process().toString(), indent2, yprocbot - (int) zoomedUserNameHeight()/3);
-                  _zoom.drawString(g, t.toString(from_a), indent3, y - zoom(2));
+                  _zoom.drawString(g, t.process().toString(), procLineX, yprocbot - (int) zoomedUserNameHeight()/3);
+                  _zoom.drawString(g, t.toString(from_a), threadNameX, y - zoom(2));
                 }
               else if (isFirstThreadOfProcess(i))
                 {
-                  _zoom.drawString(g, t.toString(from_a), indent2, y - zoom(2));
+                  _zoom.drawString(g, t.toString(from_a), procLineX, y - zoom(2));
                 }
               else
                 {
-                  _zoom.drawString(g, t.toString(from_a), indent3, y - zoom(2));
+                  _zoom.drawString(g, t.toString(from_a), threadNameX, y - zoom(2));
                 }
             }
           g.setColor(gray);
-          _zoom.drawHLine(g,1,isFirstThreadOfProcess(i) ? indent1 : indent2, y, getWidth());
-          verticalForProcess(g, i, indent2);
-          verticalForUser   (g, i, indent1);
+          _zoom.drawHLine(g,1,isFirstThreadOfProcess(i) ? userLineX : procLineX, y, getWidth());
+
+          if (u != null)
+            {
+              g.setColor(Color.white);
+              var cy = yuserbot-3*gapQuart;
+              _zoom.drawFilledRect(g,
+                                   Color.gray,
+                                   Color.white,
+                                   1,
+                                   (int) (userLineX-2*gapQuart),
+                                   (int) (cy-2*gapQuart),
+                                   (int) (4*gapQuart),
+                                   (int) (4*gapQuart));
+              g.setColor(Color.gray);
+              if (_usersEnabled[u._num])
+                { // 'v'
+                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart), (int) (cy-gapQuart/2), userLineX, (int) (cy+gapQuart/2));
+                  _zoom.drawLine(g, 1, (int) (userLineX+gapQuart), (int) (cy-gapQuart/2), userLineX, (int) (cy+gapQuart/2));
+                }
+              else
+                { // '>'
+                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart/2), (int) (cy-gapQuart), (int) (userLineX+gapQuart/2), (int) (cy));
+                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart/2), (int) (cy+gapQuart), (int) (userLineX+gapQuart/2), (int) (cy));
+                }
+            }
+
+
+          verticalForProcess(g, i, procLineX);
+          verticalForUser   (g, i, userLineX, (int) -gapQuart);
         }
       var j = i;
       while (!(j+1 >= numThreads() || isFirstThreadOfProcess(j+1)))
         {
           j++;
         }
-      verticalForProcess(g, j, indent2);
+      verticalForProcess(g, j, procLineX);
 
       var k = i;
       while (!(k+1 >= numThreads() || isFirstThreadOfUser(k+1)))
         {
           k++;
         }
-      verticalForUser(g, k, indent1);
+      verticalForUser(g, k, userLineX, (int) -gapQuart);
     }
   }
 
-  void verticalForProcess(Graphics g, int i, int indent2)
+  void verticalForProcess(Graphics g, int i, int procLineX)
   {
     if (i+1 >= numThreads() || isFirstThreadOfProcess(i+1))
       {
@@ -1375,11 +1435,11 @@ class SchedulingPanorama extends Panorama
           {
             f--;
           }
-        _zoom.drawVLine(g, 1, indent2, threadY(f), threadY(i));
+        _zoom.drawVLine(g, 1, procLineX, threadY(f), threadY(i));
       }
   }
 
-  void verticalForUser(Graphics g, int i, int indent1)
+  void verticalForUser(Graphics g, int i, int userLineX, int indentTop)
   {
     if (i+1 >= numThreads() || isFirstThreadOfUser(i+1))
       {
@@ -1393,7 +1453,7 @@ class SchedulingPanorama extends Panorama
           {
             k--;
           }
-        _zoom.drawVLine(g, 1, indent1, threadYUserBot(k), threadY(j));
+        _zoom.drawVLine(g, 1, userLineX, threadYUserBot(k)+indentTop, threadY(j));
       }
   }
 
@@ -1506,5 +1566,6 @@ class SchedulingPanorama extends Panorama
     // both be the same!
     return thread_to_zoom_y(_rememberedMiddleThread);
   }
+
 
 }

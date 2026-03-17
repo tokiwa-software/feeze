@@ -483,7 +483,11 @@ class PanoramaListener
       {
         synchronized (ar)
           {
-            ar.notify();
+            if (ar._waitingForPaintDone)
+              {
+                ar._waitingForPaintDone = false;
+                ar.notify();
+              }
           }
       }
   }
@@ -571,6 +575,12 @@ class PanoramaListener
 
 
     /**
+     * During autorepeat, we will wait for a paint to finish before repeating again.
+     */
+    boolean _waitingForPaintDone = false;
+
+
+    /**
      * Constructor, sets the daemon flag.
      */
     Autorepeat()
@@ -622,7 +632,11 @@ class PanoramaListener
                       else if (button == _unzoom  ) { _p.zoomOut( _repeatCount); }
                       _p.recallPos();
                     });
-                  Threads.wait(this);
+                  _waitingForPaintDone = true;
+                  while (_waitingForPaintDone && _activeComponent != null)
+                    {
+                      Threads.wait(this);
+                    }
                   _autorepeatFor = button;
                   if (_autorepeat._activeComponent == _compress ||
                       _autorepeat._activeComponent == _expand      )

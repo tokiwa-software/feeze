@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 package dev.flang.feeze;
 
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 
@@ -231,6 +232,34 @@ class Zoom
       }
   }
 
+
+  void drawRect(Graphics g,
+                int width,
+                int x,
+                int y,
+                int w,
+                int h)
+  {
+    drawHLine(g, width, x    , y    , x+w-1);
+    drawHLine(g, width, x    , y+h-1, x+w-1);
+    drawVLine(g, width, x    , y    , y+h-1);
+    drawVLine(g, width, x+w-1, y    , y+h-1);
+  }
+
+  void drawFilledRect(Graphics g,
+                      Color lineCol,
+                      Color fillCol,
+                      int width,
+                      int x,
+                      int y,
+                      int w,
+                      int h)
+  {
+    g.setColor(fillCol);
+    g.fillRect(x,y,w,h);
+    g.setColor(lineCol);
+    drawRect(g, width, x, y, w, h);
+  }
 
   static final int STANDARD_FONT_SIZE = 12;
 
