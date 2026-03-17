@@ -1319,18 +1319,9 @@ class SchedulingPanorama extends Panorama
       var threadNameX = (int) (12 * gapQuart);
 
       var pr = SchedulingPanorama.this.getVisibleRect();
-      var background = new Color(192, 192, 255); // bright blue background
-      var backgroundave = (background.getRed() + background.getGreen() + background.getBlue())/3;
-      var backgroundfactor = 32;
-      var r = g.getClipBounds(); // NYI: Remove! Should not be needed, and really not added to coordinates!
-      g.setColor(background);
-      g.fillRect(r.x, r.y, r.width, r.height);
-      g.setColor(gray);
-      g.drawLine(r.x+r.width-1, r.y,
-                 r.x+r.width-1, r.y+r.height);
-
-      var i = Math.max(0, threadAt(r.y)-1);
-      for (; threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
+      var clipr = g.getClipBounds(); // NYI: Remove! Should not be needed, and really not added to coordinates!
+      var i = Math.max(0, threadAt(clipr.y)-1);
+      for (; threadY(i-1) <= clipr.y+clipr.height && i < numThreads(); i++)
         {
           var t = thread(i);
           var y = threadY(i);
@@ -1346,7 +1337,7 @@ class SchedulingPanorama extends Panorama
             {
               var fc = PROCESS_COLS3[(1+userNum(i)) % 2][2];
               g.setColor(fc);
-              g.fillRect(r.x, yusertop, r.width, yuserbot-yusertop);
+              g.fillRect(0, yusertop, getWidth(), yuserbot-yusertop);
               u = t.user();
               g.setColor(Color.white);
               _zoom.drawString(g, u._name, procLineX, yuserbot - (int) zoomedUserNameHeight()/6);
@@ -1354,11 +1345,6 @@ class SchedulingPanorama extends Panorama
           var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
                    false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
                          : PROCESS_COLS3[(1+userNum(i)) & 1][processNum(i) & 1];
-          var c = new Color(Math.min(255, Math.max(0, cp.getRed  () + (background.getRed()   - backgroundave)*backgroundfactor/256)),
-                            Math.min(255, Math.max(0, cp.getGreen() + (background.getGreen() - backgroundave)*backgroundfactor/256)),
-                            Math.min(255, Math.max(0, cp.getBlue()  + (background.getBlue()  - backgroundave)*backgroundfactor/256)));
-          g.setColor(c);
-          g.fillRect(r.x, yuserbot, r.width, yb-yuserbot);
           var from_a = actionAt(t, pr.x);
           if (_threadShown[i])
             {
@@ -1423,6 +1409,9 @@ class SchedulingPanorama extends Panorama
           k++;
         }
       verticalForUser(g, k, userLineX, (int) -gapQuart);
+      g.setColor(gray);
+      g.drawLine(getWidth()-1, 0,
+                 getWidth()-1, getHeight()-1);
     }
   }
 
