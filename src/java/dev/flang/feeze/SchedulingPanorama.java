@@ -28,18 +28,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package dev.flang.feeze;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 
 import java.util.ArrayList;
 import java.util.TreeSet;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 import dev.flang.swing.Panorama;
 
@@ -1203,7 +1207,7 @@ class SchedulingPanorama extends Panorama
 
     public Scala()
     {
-      setPreferredSize(new java.awt.Dimension(1, _zoom.STANDARD_FONT_SIZE*7/8*5+16));
+      setPreferredSize(new Dimension(1, _zoom.STANDARD_FONT_SIZE*7/8*5+16));
     }
 
     protected void paintComponent(Graphics g)
@@ -1241,15 +1245,81 @@ class SchedulingPanorama extends Panorama
   public class ThreadNames extends JComponent
   {
 
+    /**
+     * Are we currently dragging, i.e., changing the width of this component?
+     */
+    boolean _dragging = false;
+
+    /**
+     * During _dragging, the last x position of the mouse that was processed to
+     * change the width.
+     */
+    int _dragX = 0;
+
+    int _preferredWidth;
+
+
+    /**
+     * one eighth of the gap between vertical lines, used for detailed drawing.
+     */
+    double gapEighth()
+    {
+      return _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 0.125);
+    }
+
+    /**
+     * Minimun width of ThreadNames are, used to make sure it does not
+     * accidentally disappear when dragging.
+     */
+    int MIN_THREADNAMES_WIDTH() { return (int) (4*gapEighth()); }
+    /**
+
+     * Minimun width of panorama data, used to make sure it does not
+     * accidentally disappear when dragging.
+     */
+    int MIN_PANORAMA_WIDTH   () { return (int) (8*gapEighth()); }
+
+    /**
+     * Drag area is the area where you can grab the line and move it around.
+     */
+    int dragAreaWidth        () { return (int) (4*gapEighth()); }
+    int dragAreaHeight       () { return (int) (16*gapEighth()); }
+    int dragAreaX            () { return (int) (getWidth() - dragAreaWidth()); }
+    int dragAreaY            () { return (int) (8*gapEighth()); }
+
+
+    /**
+     * Are the given relative (to ThreadNames) coordinates within the drag
+     * button?
+     */
+    boolean inDragArea(int x, int y)
+    {
+      var ex = x - getVisibleRect().x;
+      var ey = y - getVisibleRect().y;
+      return
+        dragAreaX() <= ex && ex < dragAreaX() + dragAreaWidth() &&
+        dragAreaY() <= ey && ey < dragAreaY() + dragAreaHeight();
+    }
+
+
+    /**
+     * Constructor
+     */
     public ThreadNames()
     {
-      setPreferredSize(new java.awt.Dimension(_zoom.STANDARD_FONT_SIZE*10, 1));
-      addMouseListener(new java.awt.event.MouseListener()
+      _preferredWidth  = _zoom.STANDARD_FONT_SIZE*10;
+      setPreferredSize(new Dimension(_preferredWidth, 1));
+      addMouseListener(new MouseListener()
         {
 
           @Override
           public void mouseReleased(MouseEvent e)
           {
+            if (e.getComponent() == ThreadNames.this &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                _dragging = false;
+              }
           }
 
           public void mouseClicked(MouseEvent e)
@@ -1264,7 +1334,8 @@ class SchedulingPanorama extends Panorama
                 var u = thread(ti).user();
                 if (ti <= numThreads()      &&
                     isFirstThreadOfUser(ti) &&
-                    y < threadYUserBot(ti)      )
+                    y < threadYUserBot(ti)  &&
+                    !inDragArea(x, y))
                   {
                     synchronized (SchedulingPanorama.this)
                       {
@@ -1290,22 +1361,49 @@ class SchedulingPanorama extends Panorama
           @Override
           public void mousePressed(MouseEvent e)
           {
+            if (e.getComponent() == ThreadNames.this &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                var x = e.getX();
+                var y = e.getY();
+                if (inDragArea(x, y))
+                  {
+                    _dragX = x;
+                    _dragging = true;
+                  }
+              }
           }
 
         });
-      addMouseMotionListener(new java.awt.event.MouseMotionListener()
+      addMouseMotionListener(new MouseMotionListener()
         {
 
           @Override
           public void mouseMoved(MouseEvent e)
           {
-            //            System.out.println("mouse moved: "+e);
           }
 
           @Override
           public void mouseDragged(MouseEvent e)
           {
-            //            System.out.println("mouse dragged: "+e);
+            if (e.getComponent() == ThreadNames.this &&
+                SwingUtilities.isLeftMouseButton(e) &&
+                _dragging)
+              {
+                var dx = e.getX() - _dragX;
+                if (dx != 0)
+                  {
+                    if (dx > 0)
+                      {
+                        dx = Math.min(dx, SchedulingPanorama.this.getVisibleRect().width - MIN_PANORAMA_WIDTH());
+                      }
+                    var oldSize = getPreferredSize();
+                    var newWidth = Math.max(MIN_THREADNAMES_WIDTH(), oldSize.width + dx);
+                    _dragX += dx;
+                    setPreferredSize(new Dimension(newWidth, oldSize.height));
+                    revalidate();
+                  }
+              }
           }
 
         });
@@ -1313,10 +1411,10 @@ class SchedulingPanorama extends Panorama
 
     protected void paintComponent(Graphics g)
     {
-      var gapQuart     = _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 0.25);  // one quarter of the gap between lines
-      var userLineX   = (int) ( 4 * gapQuart);
-      var procLineX   = (int) ( 8 * gapQuart);
-      var threadNameX = (int) (12 * gapQuart);
+      var gapEighth   = gapEighth();
+      var userLineX   = (int) ( 8 * gapEighth);
+      var procLineX   = (int) (16 * gapEighth);
+      var threadNameX = (int) (24 * gapEighth);
 
       var pr = SchedulingPanorama.this.getVisibleRect();
       var clipr = g.getClipBounds(); // NYI: Remove! Should not be needed, and really not added to coordinates!
@@ -1342,9 +1440,10 @@ class SchedulingPanorama extends Panorama
               g.setColor(Color.white);
               _zoom.drawString(g, u._name, procLineX, yuserbot - (int) zoomedUserNameHeight()/6);
             }
-          var cp = false ? PROCESS_COLS[t.process()._num % PROCESS_COLS.length]            :  // NYI: cleanup when display is stable
-                   false ? PROCESS_COLS2[processNum(i)*3 % 5][1 + (userNum(i) % 3)]
-                         : PROCESS_COLS3[(1+userNum(i)) & 1][processNum(i) & 1];
+
+          g.setColor(PROCESS_COLS3[(1+userNum(i)) & 1][processNum(i) & 1]);
+          g.fillRect(0, yuserbot, getWidth(), yb-yuserbot);
+
           var from_a = actionAt(t, pr.x);
           if (_threadShown[i])
             {
@@ -1370,31 +1469,31 @@ class SchedulingPanorama extends Panorama
           if (u != null)
             {
               g.setColor(Color.white);
-              var cy = yuserbot-3*gapQuart;
+              var cy = yuserbot-6*gapEighth;
               _zoom.drawFilledRect(g,
                                    Color.gray,
                                    Color.white,
                                    1,
-                                   (int) (userLineX-2*gapQuart),
-                                   (int) (cy-2*gapQuart),
-                                   (int) (4*gapQuart),
-                                   (int) (4*gapQuart));
+                                   (int) (userLineX-4*gapEighth),
+                                   (int) (cy-4*gapEighth),
+                                   (int) (8*gapEighth),
+                                   (int) (8*gapEighth));
               g.setColor(Color.gray);
               if (_usersEnabled[u._num])
                 { // 'v'
-                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart), (int) (cy-gapQuart/2), userLineX, (int) (cy+gapQuart/2));
-                  _zoom.drawLine(g, 1, (int) (userLineX+gapQuart), (int) (cy-gapQuart/2), userLineX, (int) (cy+gapQuart/2));
+                  _zoom.drawLine(g, 1, (int) (userLineX-2*gapEighth), (int) (cy-gapEighth), userLineX, (int) (cy+gapEighth));
+                  _zoom.drawLine(g, 1, (int) (userLineX+2*gapEighth), (int) (cy-gapEighth), userLineX, (int) (cy+gapEighth));
                 }
               else
                 { // '>'
-                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart/2), (int) (cy-gapQuart), (int) (userLineX+gapQuart/2), (int) (cy));
-                  _zoom.drawLine(g, 1, (int) (userLineX-gapQuart/2), (int) (cy+gapQuart), (int) (userLineX+gapQuart/2), (int) (cy));
+                  _zoom.drawLine(g, 1, (int) (userLineX-gapEighth), (int) (cy-2*gapEighth), (int) (userLineX+gapEighth), (int) (cy));
+                  _zoom.drawLine(g, 1, (int) (userLineX-gapEighth), (int) (cy+2*gapEighth), (int) (userLineX+gapEighth), (int) (cy));
                 }
             }
 
 
           verticalForProcess(g, i, procLineX);
-          verticalForUser   (g, i, userLineX, (int) -gapQuart);
+          verticalForUser   (g, i, userLineX, (int) (-2*gapEighth));
         }
       var j = i;
       while (!(j+1 >= numThreads() || isFirstThreadOfProcess(j+1)))
@@ -1408,10 +1507,17 @@ class SchedulingPanorama extends Panorama
         {
           k++;
         }
-      verticalForUser(g, k, userLineX, (int) -gapQuart);
+      verticalForUser(g, k, userLineX, (int) (-2*gapEighth));
       g.setColor(gray);
-      g.drawLine(getWidth()-1, 0,
-                 getWidth()-1, getHeight()-1);
+      _zoom.drawLine(g,
+                     1,
+                     getWidth()-1, 0,
+                     getWidth()-1, getHeight()-1);
+      _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
+                           dragAreaX(),
+                           getVisibleRect().y + dragAreaY(),
+                           dragAreaWidth(),
+                           dragAreaHeight());
     }
   }
 
