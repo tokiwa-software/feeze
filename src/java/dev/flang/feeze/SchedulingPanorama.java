@@ -394,6 +394,15 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  /**
+   * one eighth of the gap between vertical lines, used for detailed drawing.
+   */
+  double gapEighth()
+  {
+    return _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 0.125);
+  }
+
+
   /*---------------------------------------------------------------------*/
 
 
@@ -1205,21 +1214,162 @@ class SchedulingPanorama extends Panorama
   public class Scala extends JComponent
   {
 
+    /**
+     * Are we currently dragging, i.e., changing the height of this component?
+     */
+    boolean _dragging = false;
+
+    /**
+     * During _dragging, the last y position of the mouse that was processed to
+     * change the height.
+     */
+    int _dragY = 0;
+
+    int _preferredHeight;
+
+    /**
+     * Minimun height of Scale area, used to make sure it does not
+     * accidentally disappear when dragging.
+     */
+    int MIN_SCALA_HEIGHT() { return (int) (4*gapEighth()); }
+
+    /**
+     * Minimun height of panorama data, used to make sure it does not
+     * accidentally disappear when dragging.
+     */
+    int MIN_PANORAMA_HEIGHT   () { return (int) (8*gapEighth()); }
+
+    /**
+     * Drag area is the area where you can grab the line and move it around.
+     */
+    int dragAreaWidth        () { return (int) (16*gapEighth()); }
+    int dragAreaHeight       () { return (int) (4*gapEighth()); }
+    int dragAreaX            () { return (int) (8*gapEighth()); }
+    int dragAreaY            () { return (int) (getHeight() - dragAreaHeight()); }
+
+
+    /**
+     * Are the given relative (to Scala) coordinates within the drag
+     * button?
+     */
+    boolean inDragArea(int x, int y)
+    {
+      var ex = x - getVisibleRect().x;
+      var ey = y - getVisibleRect().y;
+      return
+        dragAreaX() <= ex && ex < dragAreaX() + dragAreaWidth() &&
+        dragAreaY() <= ey && ey < dragAreaY() + dragAreaHeight();
+    }
+
+
     public Scala()
     {
       setPreferredSize(new Dimension(1, _zoom.STANDARD_FONT_SIZE*7/8*5+16));
+      addMouseListener(new MouseListener()
+        {
+
+          @Override
+          public void mouseReleased(MouseEvent e)
+          {
+            if (e.getComponent() == Scala.this &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                _dragging = false;
+              }
+          }
+
+          @Override
+          public void mouseClicked(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseEntered(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseExited(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mousePressed(MouseEvent e)
+          {
+            if (e.getComponent() == Scala.this &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                var x = e.getX();
+                var y = e.getY();
+                if (inDragArea(x, y))
+                  {
+                    _dragY = y;
+                    _dragging = true;
+                  }
+              }
+          }
+
+        });
+      addMouseMotionListener(new MouseMotionListener()
+        {
+
+          @Override
+          public void mouseMoved(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseDragged(MouseEvent e)
+          {
+            if (e.getComponent() == Scala.this &&
+                SwingUtilities.isLeftMouseButton(e) &&
+                _dragging)
+              {
+                var dy = e.getY() - _dragY;
+                if (dy != 0)
+                  {
+                    if (dy > 0)
+                      {
+                        dy = Math.min(dy, SchedulingPanorama.this.getVisibleRect().height - MIN_PANORAMA_HEIGHT());
+                      }
+                    var oldSize = getPreferredSize();
+                    var newHeight = Math.max(MIN_SCALA_HEIGHT(), oldSize.height + dy);
+                    _dragY += dy;
+                    setPreferredSize(new Dimension(oldSize.width, newHeight));
+                    revalidate();
+                  }
+              }
+          }
+
+        });
     }
 
     protected void paintComponent(Graphics g)
     {
-      var r = g.getClipBounds();
       g.setColor(new Color(255, 255, 192));  // bright yellow background
-      g.fillRect(r.x, r.y, r.width, r.height);
+      g.fillRect(0, 0, getWidth(), getHeight());
 
       SchedulingPanorama.this.drawScale(g,
                                         SchedulingPanorama.this.getVisibleRect(),
-                                        64,
+                                        getHeight(),
                                         false);
+
+      g.setColor(gray);
+      var v = getVisibleRect();
+      _zoom.drawLine(g,
+                     1,
+                     v.x, v.y,
+                     v.x, v.y+v.height-1);
+      _zoom.drawLine(g,
+                     1,
+                     getWidth()-1, 0,
+                     getWidth()-1, getHeight()-1);
+
+      _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
+                           getVisibleRect().x + dragAreaX(),
+                           dragAreaY(),
+                           dragAreaWidth(),
+                           dragAreaHeight());
     }
   }
 
@@ -1258,22 +1408,13 @@ class SchedulingPanorama extends Panorama
 
     int _preferredWidth;
 
-
     /**
-     * one eighth of the gap between vertical lines, used for detailed drawing.
-     */
-    double gapEighth()
-    {
-      return _zoom.zoom(GAP_BETWEEN_VERTICAL_LINES * 0.125);
-    }
-
-    /**
-     * Minimun width of ThreadNames are, used to make sure it does not
+     * Minimun width of ThreadNames area, used to make sure it does not
      * accidentally disappear when dragging.
      */
     int MIN_THREADNAMES_WIDTH() { return (int) (4*gapEighth()); }
-    /**
 
+    /**
      * Minimun width of panorama data, used to make sure it does not
      * accidentally disappear when dragging.
      */
@@ -1322,6 +1463,7 @@ class SchedulingPanorama extends Panorama
               }
           }
 
+          @Override
           public void mouseClicked(MouseEvent e)
           {
             var x = e.getX();
@@ -1513,9 +1655,14 @@ class SchedulingPanorama extends Panorama
                      1,
                      getWidth()-1, 0,
                      getWidth()-1, getHeight()-1);
+      var v = getVisibleRect();
+      _zoom.drawLine(g,
+                     1,
+                     v.x,           v.y,
+                     v.x+v.width-1, v.y);
       _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
                            dragAreaX(),
-                           getVisibleRect().y + dragAreaY(),
+                           v.y + dragAreaY(),
                            dragAreaWidth(),
                            dragAreaHeight());
     }
