@@ -101,7 +101,7 @@ class TimeAsString
         ns -= t;
         unit++;
       }
-    while (ns > 0);
+    while (ns != 0 && unit < _unitNs_.length);
     String[] result = new String[unit - base];
 
     unit = base;
@@ -113,7 +113,7 @@ class TimeAsString
         ns -= t;
         unit++;
       }
-    while (ns > 0);
+    while (ns != 0 && unit < _unitNs_.length);
     return result;
   }
 
