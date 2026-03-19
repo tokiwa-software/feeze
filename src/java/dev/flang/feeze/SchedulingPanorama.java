@@ -403,6 +403,20 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  /**
+   * Minimun width of panorama data, used to make sure it does not
+   * accidentally disappear when dragging.
+   */
+  int MIN_PANORAMA_WIDTH   () { return (int) (8*gapEighth()); }
+
+
+  /**
+   * Minimun height of panorama data, used to make sure it does not
+   * accidentally disappear when dragging.
+   */
+  int MIN_PANORAMA_HEIGHT   () { return (int) (8*gapEighth()); }
+
+
   /*---------------------------------------------------------------------*/
 
 
@@ -837,12 +851,12 @@ class SchedulingPanorama extends Panorama
    * Return the thread at the given y posisition.  Returns 0 if y is above all
    * threads and numThreads() if it is below all threads.
    *
-   * @param y an actual y corrdinate.
+   * @param y an actual y coordinate.
    */
   int threadAt(int y)
   {
     var res = 0;
-    while (res <= numThreads()-1 && y > threadYBottom(res))
+    while (res < numThreads()-1 && y > threadYBottom(res))
       {
         res++;
       }
@@ -1234,18 +1248,12 @@ class SchedulingPanorama extends Panorama
     int MIN_SCALA_HEIGHT() { return (int) (4*gapEighth()); }
 
     /**
-     * Minimun height of panorama data, used to make sure it does not
-     * accidentally disappear when dragging.
-     */
-    int MIN_PANORAMA_HEIGHT   () { return (int) (8*gapEighth()); }
-
-    /**
      * Drag area is the area where you can grab the line and move it around.
      */
     int dragAreaWidth        () { return (int) (16*gapEighth()); }
     int dragAreaHeight       () { return (int) (4*gapEighth()); }
-    int dragAreaX            () { return (int) (8*gapEighth()); }
-    int dragAreaY            () { return (int) (getHeight() - dragAreaHeight()); }
+    int dragAreaX            () { return (int) (getVisibleRect().x + getVisibleRect().width  - 24*gapEighth()); }
+    int dragAreaY            () { return (int) (getVisibleRect().y + getVisibleRect().height - dragAreaHeight()); }
 
 
     /**
@@ -1254,11 +1262,9 @@ class SchedulingPanorama extends Panorama
      */
     boolean inDragArea(int x, int y)
     {
-      var ex = x - getVisibleRect().x;
-      var ey = y - getVisibleRect().y;
       return
-        dragAreaX() <= ex && ex < dragAreaX() + dragAreaWidth() &&
-        dragAreaY() <= ey && ey < dragAreaY() + dragAreaHeight();
+        dragAreaX() <= x && x < dragAreaX() + dragAreaWidth() &&
+        dragAreaY() <= y && y < dragAreaY() + dragAreaHeight();
     }
 
 
@@ -1332,16 +1338,22 @@ class SchedulingPanorama extends Panorama
                       {
                         dy = Math.min(dy, SchedulingPanorama.this.getVisibleRect().height - MIN_PANORAMA_HEIGHT());
                       }
-                    var oldSize = getPreferredSize();
-                    var newHeight = Math.max(MIN_SCALA_HEIGHT(), oldSize.height + dy);
+                    changeHeight(dy);
                     _dragY += dy;
-                    setPreferredSize(new Dimension(oldSize.width, newHeight));
-                    revalidate();
                   }
               }
           }
 
         });
+    }
+
+
+    void changeHeight(int dy)
+    {
+      var oldSize = getPreferredSize();
+      var newHeight = Math.max(MIN_SCALA_HEIGHT(), oldSize.height + dy);
+      setPreferredSize(new Dimension(oldSize.width, newHeight));
+      revalidate();
     }
 
     protected void paintComponent(Graphics g)
@@ -1354,19 +1366,8 @@ class SchedulingPanorama extends Panorama
                                         getHeight(),
                                         false);
 
-      g.setColor(gray);
-      var v = getVisibleRect();
-      _zoom.drawLine(g,
-                     1,
-                     v.x, v.y,
-                     v.x, v.y+v.height-1);
-      _zoom.drawLine(g,
-                     1,
-                     getWidth()-1, 0,
-                     getWidth()-1, getHeight()-1);
-
       _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
-                           getVisibleRect().x + dragAreaX(),
+                           dragAreaX(),
                            dragAreaY(),
                            dragAreaWidth(),
                            dragAreaHeight());
@@ -1415,18 +1416,12 @@ class SchedulingPanorama extends Panorama
     int MIN_THREADNAMES_WIDTH() { return (int) (4*gapEighth()); }
 
     /**
-     * Minimun width of panorama data, used to make sure it does not
-     * accidentally disappear when dragging.
-     */
-    int MIN_PANORAMA_WIDTH   () { return (int) (8*gapEighth()); }
-
-    /**
      * Drag area is the area where you can grab the line and move it around.
      */
     int dragAreaWidth        () { return (int) (4*gapEighth()); }
     int dragAreaHeight       () { return (int) (16*gapEighth()); }
-    int dragAreaX            () { return (int) (getWidth() - dragAreaWidth()); }
-    int dragAreaY            () { return (int) (8*gapEighth()); }
+    int dragAreaX            () { return (int) (getVisibleRect().x + getVisibleRect().width  - dragAreaWidth()); }
+    int dragAreaY            () { return (int) (getVisibleRect().y + getVisibleRect().height - 24*gapEighth() ); }
 
 
     /**
@@ -1435,11 +1430,9 @@ class SchedulingPanorama extends Panorama
      */
     boolean inDragArea(int x, int y)
     {
-      var ex = x - getVisibleRect().x;
-      var ey = y - getVisibleRect().y;
       return
-        dragAreaX() <= ex && ex < dragAreaX() + dragAreaWidth() &&
-        dragAreaY() <= ey && ey < dragAreaY() + dragAreaHeight();
+        dragAreaX() <= x && x < dragAreaX() + dragAreaWidth() &&
+        dragAreaY() <= y && y < dragAreaY() + dragAreaHeight();
     }
 
 
@@ -1539,16 +1532,21 @@ class SchedulingPanorama extends Panorama
                       {
                         dx = Math.min(dx, SchedulingPanorama.this.getVisibleRect().width - MIN_PANORAMA_WIDTH());
                       }
-                    var oldSize = getPreferredSize();
-                    var newWidth = Math.max(MIN_THREADNAMES_WIDTH(), oldSize.width + dx);
+                    changeWidth(dx);
                     _dragX += dx;
-                    setPreferredSize(new Dimension(newWidth, oldSize.height));
-                    revalidate();
                   }
               }
           }
 
         });
+    }
+
+    void changeWidth(int dx)
+    {
+      var oldSize = getPreferredSize();
+      var newWidth = Math.max(MIN_THREADNAMES_WIDTH(), oldSize.width + dx);
+      setPreferredSize(new Dimension(newWidth, oldSize.height));
+      revalidate();
     }
 
     protected void paintComponent(Graphics g)
@@ -1655,14 +1653,9 @@ class SchedulingPanorama extends Panorama
                      1,
                      getWidth()-1, 0,
                      getWidth()-1, getHeight()-1);
-      var v = getVisibleRect();
-      _zoom.drawLine(g,
-                     1,
-                     v.x,           v.y,
-                     v.x+v.width-1, v.y);
       _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
                            dragAreaX(),
-                           v.y + dragAreaY(),
+                           dragAreaY(),
                            dragAreaWidth(),
                            dragAreaHeight());
     }
@@ -1697,6 +1690,195 @@ class SchedulingPanorama extends Panorama
           }
         _zoom.drawVLine(g, 1, userLineX, threadYUserBot(k)+indentTop, threadY(j));
       }
+  }
+
+
+  /*---------------------------------------------------------------------*/
+
+
+  /**
+   * top left corner
+   */
+  JComponent _topLeft = new JComponent()
+  {
+    JComponent me = this;
+
+    /**
+     * Are we currently dragging, i.e., changing the width of this component?
+     */
+    boolean _dragging = false;
+
+    /**
+     * During _dragging, the last x/y position of the mouse that was processed to
+     * change the width.
+     */
+    int _dragX = 0;
+    int _dragY = 0;
+
+
+    /**
+     * Minimun width of topLeft area, used to make sure it does not accidentally
+     * disappear when dragging.
+     */
+    int MIN_WIDTH() { return (int) (8*gapEighth()); }
+
+    /**
+     * Minimun height of topLeft area, used to make sure it does not accidentally
+     * disappear when dragging.
+     */
+    int MIN_HEIGHT() { return (int) (8*gapEighth()); }
+
+
+    /**
+     * Drag area is the area where you can grab the line and move it around.
+     */
+    int dragAreaWidth        () { return (int) (8*gapEighth()); }
+    int dragAreaHeight       () { return (int) (8*gapEighth()); }
+    int dragAreaX            () { return (int) (getWidth()  - dragAreaWidth() ); }
+    int dragAreaY            () { return (int) (getHeight() - dragAreaHeight()); }
+
+
+    /**
+     * Are the given relative (to ThreadNames) coordinates within the drag
+     * button?
+     */
+    boolean inDragArea(int x, int y)
+    {
+      var ex = x;
+      var ey = y;
+      return
+        dragAreaX() <= ex && ex < dragAreaX() + dragAreaWidth() &&
+        dragAreaY() <= ey && ey < dragAreaY() + dragAreaHeight();
+    }
+
+
+    {
+      setPreferredSize(new Dimension(1, 1));
+      addMouseListener(new MouseListener()
+        {
+
+          @Override
+          public void mouseReleased(MouseEvent e)
+          {
+            if (e.getComponent() == me &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                _dragging = false;
+              }
+          }
+
+          @Override
+          public void mouseClicked(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseEntered(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseExited(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mousePressed(MouseEvent e)
+          {
+            if (e.getComponent() == me &&
+                SwingUtilities.isLeftMouseButton(e))
+              {
+                var x = e.getX();
+                var y = e.getY();
+                if (inDragArea(x, y))
+                  {
+                    _dragX = x;
+                    _dragY = y;
+                    _dragging = true;
+                  }
+              }
+          }
+
+        });
+      addMouseMotionListener(new MouseMotionListener()
+        {
+
+          @Override
+          public void mouseMoved(MouseEvent e)
+          {
+          }
+
+          @Override
+          public void mouseDragged(MouseEvent e)
+          {
+            if (e.getComponent() == me &&
+                SwingUtilities.isLeftMouseButton(e) &&
+                _dragging)
+              {
+                var dx = e.getX() - _dragX;
+                var dy = e.getY() - _dragY;
+                if (dx != 0 || dy != 0)
+                  {
+                    if (dx > 0)
+                      {
+                        dx = Math.min(dx, SchedulingPanorama.this.getVisibleRect().width - MIN_PANORAMA_WIDTH());
+                      }
+                    if (dy > 0)
+                      {
+                        dy = Math.min(dy, SchedulingPanorama.this.getVisibleRect().height - MIN_PANORAMA_HEIGHT());
+                      }
+                    _dragX += dx;
+                    _dragY += dy;
+                    _leftRuler.changeWidth( dx);
+                    _topRuler .changeHeight(dy);
+                  }
+              }
+          }
+
+        });
+    }
+
+    protected void paintComponent(Graphics g)
+    {
+      var v = getVisibleRect();
+      g.setColor(Color.gray);
+      _zoom.drawLine(g,
+                     1,
+                     v.x,           v.y+v.height-1,
+                     v.x+v.width-1, v.y+v.height-1);
+      _zoom.drawLine(g,
+                     1,
+                     v.x+v.width-1, v.y,
+                     v.x+v.width-1, v.y+v.height-1);
+      _zoom.drawFilledRect(g,Color.gray, Color.white, 1,
+                           dragAreaX(),
+                           dragAreaY(),
+                           dragAreaWidth(),
+                           dragAreaHeight());
+      g.setColor(Color.gray);
+      _zoom.drawLine(g, 1,
+                     (int) (dragAreaX()+                  2*gapEighth()), (int) (dragAreaY()+                  2*gapEighth()),
+                     (int) (dragAreaX()+                  4*gapEighth()), (int) (dragAreaY()+                  2*gapEighth()));
+      _zoom.drawLine(g, 1,
+                     (int) (dragAreaX()+                  2*gapEighth()), (int) (dragAreaY()+                  2*gapEighth()),
+                     (int) (dragAreaX()+                  2*gapEighth()), (int) (dragAreaY()+                  4*gapEighth()));
+      _zoom.drawLine(g, 1,
+                     (int) (dragAreaX()+dragAreaWidth()-1-2*gapEighth()), (int) (dragAreaY()+dragAreaHeight()-1-2*gapEighth()),
+                     (int) (dragAreaX()+dragAreaWidth()-1-4*gapEighth()), (int) (dragAreaY()+dragAreaHeight()-1-2*gapEighth()));
+      _zoom.drawLine(g, 1,
+                     (int) (dragAreaX()+dragAreaWidth()-1-2*gapEighth()), (int) (dragAreaY()+dragAreaHeight()-1-2*gapEighth()),
+                     (int) (dragAreaX()+dragAreaWidth()-1-2*gapEighth()), (int) (dragAreaY()+dragAreaHeight()-1-4*gapEighth()));
+      _zoom.drawLine(g, 1,
+                     (int) (dragAreaX()+                  2*gapEighth()), (int) (dragAreaY()+                  2*gapEighth()),
+                     (int) (dragAreaX()+dragAreaWidth()-1-2*gapEighth()), (int) (dragAreaY()+dragAreaHeight()-1-2*gapEighth()));
+    }
+  };
+
+
+  @Override
+  public JComponent topLeft()
+  {
+    return _topLeft;
   }
 
 

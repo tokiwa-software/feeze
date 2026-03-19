@@ -37,6 +37,7 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
+import javax.swing.ScrollPaneConstants;
 
 /*---------------------------------------------------------------------*/
 
@@ -342,6 +343,15 @@ public abstract class Panorama extends JPanel
 
 
   /**
+   * Optional component to be placed in the top left corner.
+   */
+  public JComponent topLeft()
+  {
+    return null;
+  }
+
+
+  /**
    * Obtain a reference to a JScrollPane that contains this Panorama.
    * This scroll pane has to be added to the surrounding component.
    *
@@ -372,6 +382,11 @@ public abstract class Panorama extends JPanel
     if (lr != null)
       {
         res.setRowHeaderView(lr);
+      }
+    var tl = topLeft();
+    if (tl != null)
+      {
+        res.setCorner(ScrollPaneConstants.UPPER_LEFT_CORNER, tl);
       }
 
     adjustPosX(0);
