@@ -284,7 +284,7 @@ class SchedulingPanorama extends Panorama
    * Convert index to boot_ns (nanoseconds since boot time)
    */
   long boot_ns_from_index(int  i          ) { if (ANY.PRECONDITIONS) ANY.require(_data.kind(i) == Offsets.ENTRY_KIND_SCHED_SWITCH);
-                                              return _data.nanos(i);
+                                              return _data.nanosAtSwitch(i);
                                             }
   /**
    * Convert boot_ns (nanoseconds since boot time) to index
@@ -864,11 +864,11 @@ class SchedulingPanorama extends Panorama
     while (al < ar)
       {
         int am = (al+ar)/2;
-        var mx = nanos_to_posx(_data.nanos(t.at(am)) - _data.nanosMin());
+        var mx = nanos_to_posx(_data.nanosAtOrBefore(t.at(am)) - _data.nanosMin());
         if (mx <= x) { res = am; al = am+1; }
         if (mx >= x) {           ar = am-1; }
       }
-    while (res < t.numActions()-1 && (nanos_to_posx(_data.nanos(t.at(res+1)) - _data.nanosMin()) <= x))
+    while (res < t.numActions()-1 && (nanos_to_posx(_data.nanosAtOrBefore(t.at(res+1)) - _data.nanosMin()) <= x))
       {
         res++;
       }
@@ -887,11 +887,11 @@ class SchedulingPanorama extends Panorama
     while (al < ar)
       {
         int am = (al+ar)/2;
-        var mx = nanos_to_posx(_data.nanos(_data._gaps.get(am)) - _data.nanosMin());
+        var mx = nanos_to_posx(_data.nanosAtSwitch(_data._gaps.get(am)) - _data.nanosMin());
         if (mx <= x) { res = am; al = am+1; }
         if (mx >= x) {           ar = am-1; }
       }
-    while (res < _data._gaps.size()-1 && (nanos_to_posx(_data.nanos(_data._gaps.get(res+1)) - _data.nanosMin()) <= x))
+    while (res < _data._gaps.size()-1 && (nanos_to_posx(_data.nanosAtSwitch(_data._gaps.get(res+1)) - _data.nanosMin()) <= x))
       {
         res++;
       }
@@ -964,7 +964,7 @@ class SchedulingPanorama extends Panorama
                   }
                 long nameShownAtNS = posx_to_nanos(r.x) & ~(NAME_DIST_NS-1);
                 int nameShownAt = nanos_to_posx(nameShownAtNS);
-                while (nameShownAtNS < _data.nanos(_data.entryCount()-1)-_data.nanosMin() && nameShownAt < r.x+r.width)
+                while (nameShownAtNS < _data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin() && nameShownAt < r.x+r.width)
                   {
                     int x = nameShownAt;
                     g.setColor(gray);
@@ -991,9 +991,9 @@ class SchedulingPanorama extends Panorama
                         nextCol = Color.magenta;
                         nextWidth = 20;
                       }
-                    var nl = _data.nanos(t.at(a))-_data.nanosMin();
+                    var nl = _data.nanosAtSwitch(t.at(a))-_data.nanosMin();
                     var nr = (a+1 >= t.numActions() ? _data.nanosMax()
-                                                    : _data.nanos(t.at(a+1))) -_data.nanosMin();
+                                                    : _data.nanosAtSwitch(t.at(a+1))) -_data.nanosMin();
 
                     if (ANY.CHECKS) ANY.check
                       (nl <= nr);   // event times should be monotonic increasing
@@ -1002,7 +1002,7 @@ class SchedulingPanorama extends Panorama
                     var xl = nanos_to_posx(nl);
                     var xr = nanos_to_posx(nr);
                     var nnr = (a+2 >= t.numActions() ? _data.nanosMax()
-                                                     : _data.nanos(t.at(a+2))) -_data.nanosMin();
+                                                     : _data.nanosAtSwitch(t.at(a+2))) -_data.nanosMin();
                     if (a == 0)
                       {
                         if (t.stopsRunning(a))
@@ -1047,12 +1047,12 @@ class SchedulingPanorama extends Panorama
                         if (t.stopsRunning(a0))
                           {
                             g.setColor(Color.blue);
-                            _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()));
+                            _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
                           }
                         else if (t.startsRunning(a0))
                           {
                             g.setColor(DARK_GREEN);
-                            _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanos(_data.entryCount()-1)-_data.nanosMin()));
+                            _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
                           }
                       }
                   }
@@ -1063,8 +1063,8 @@ class SchedulingPanorama extends Panorama
               {
                 var ar = _data._gaps.get(a);
                 var al = ar-1;
-                var xmin = nanos_to_posx(al >= 0 ? _data.nanos(al) - _data.nanosMin() : 0);
-                var xmax = nanos_to_posx(          _data.nanos(ar) - _data.nanosMin()    );
+                var xmin = nanos_to_posx(al >= 0 ? _data.nanosAtOrBefore(al) - _data.nanosMin() : 0);
+                var xmax = nanos_to_posx(          _data.nanosAtOrBefore(ar) - _data.nanosMin()    );
                 if (xmax >= r.x && xmin <= r.x+r.width)
                   {
                     g.setColor(new Color(255,0,100,63));

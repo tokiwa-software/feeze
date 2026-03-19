@@ -123,12 +123,35 @@ class Data implements Offsets
     return 0;
   }
 
-  long nanos(int at)
+  /**
+   * Get the time at the given SCHED_SWITCH entry.
+   */
+  long nanosAtSwitch(int at)
   {
     switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH: return Feeze.ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
+      }
+  }
+
+
+  /**
+   * Get the time at or before given index.
+   */
+  long nanosAtOrBefore(int at)
+  {
+    while (kind(at) != ENTRY_KIND_SCHED_SWITCH && at > 0)
+      {
+        at--;
+      }
+    if (at == 0)
+      {
+        return nanosMin();
+      }
+    else
+      {
+        return nanosAtSwitch(at);
       }
   }
 
@@ -190,16 +213,6 @@ class Data implements Offsets
       {
         while (names_processed < num_entries)
           {
-            if (false && names_processed > 1)
-              {
-                var ns = nanos(names_processed);
-                var ns0 = nanos(names_processed-1);
-                var delta = ns-ns0;
-                if (delta <= 0)
-                  {
-                    System.out.println("ns not continues at "+names_processed+": "+ns0+" -> "+ns+" delta: "+delta);
-                  }
-              }
             switch (kind(names_processed))
               {
               case ENTRY_KIND_UNUSED: break;

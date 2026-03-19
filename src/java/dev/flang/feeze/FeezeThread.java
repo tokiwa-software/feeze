@@ -84,7 +84,7 @@ abstract class FeezeThread extends ANY
     // fix order to be strictly increasing nanos. This might have gotten mixed
     // up due to race conditions writing to ring buffers.
     var n = _num_actions-1;
-    while (n > 0 && (_data.nanos(_at[n]) - _data.nanos(_at[n-1]) < 0))
+    while (n > 0 && (_data.nanosAtSwitch(_at[n]) - _data.nanosAtSwitch(_at[n-1]) < 0))
       {
         var x = _at[n]; _at[n] = _at[n-1]; _at[n-1] = x;
         n--;
