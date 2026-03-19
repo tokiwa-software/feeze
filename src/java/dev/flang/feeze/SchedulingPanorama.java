@@ -1172,11 +1172,11 @@ class SchedulingPanorama extends Panorama
     FontMetrics fm = g.getFontMetrics(_zoom.standardFont());
     if (below)
       {
-        y += zoom(10) + fm.getAscent();
+        y += zoom(12) + fm.getAscent();
       }
     else
       {
-        y -= zoom(10) - fm.getLeading();
+        y -= zoom(12) - fm.getLeading();
       }
     for (String s : TimeAsString.get(timens, grade))
       {
