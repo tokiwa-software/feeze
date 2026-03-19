@@ -267,6 +267,7 @@ public abstract class Panorama extends JPanel
       {
         var sz = tr.getPreferredSize();
         tr.setPreferredSize(new Dimension(_width, sz.height));
+        tr.repaint();
       }
   }
   public void adjustPosY(int posy)
@@ -292,6 +293,7 @@ public abstract class Panorama extends JPanel
       {
         var sz = lr.getPreferredSize();
         lr.setPreferredSize(new Dimension(sz.width, _height));
+        lr.repaint();
       }
   }
 
