@@ -20,47 +20,42 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
  *
  * Copyright (c) 2026, Tokiwa Software GmbH, Germany
  *
- * Java source code of class dev.flang.feeze.FeezeThread
+ * Java source code of class dev.flang.feeze.Cpu
  *
  *---------------------------------------------------------------------*/
 
 
 package dev.flang.feeze;
 
-import java.util.Arrays;
+import dev.flang.util.ANY;
 
 /*---------------------------------------------------------------------*/
 
 
 /**
- * FeezeThread represents a thread, either in recorded data or an artificial
- * thread with accumulated data from several threads.
+ * Cpu represents a CPU in recorded data
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-abstract class FeezeThread extends ActionSubSet
+class Cpu extends ActionSubSet
 {
+  final int _id;
 
-
-  FeezeThread(Data data)
+  Cpu(Data data, int id)
   {
     super(data);
+    _id = id;
   }
 
-
-  public abstract SystemUser user();
-  public abstract SystemProcess process();
-
-
-  /**
-   * Is this a thread that represents a process?
-   */
-  public abstract boolean isProcess();
+  void addAction(int at)
+  {
+    super.addAction(at);
+  }
 
 
   public boolean startsRunning(int i)
   {
-    return this == _data.newThreadAt(at(i));
+    return !_data.newThreadAt(at(i)).isSwapper();
   }
   public boolean continuesRunning(int i)
   {
@@ -68,21 +63,13 @@ abstract class FeezeThread extends ActionSubSet
   }
   public boolean stopsRunning(int i)
   {
-    return this == _data.oldThreadAt(at(i));
+    return !_data.oldThreadAt(at(i)).isSwapper();
   }
 
-  /**
-   * CPU id of this thread's scheduler action at given index.
-   */
-  public int cpu_id(int i)
+  @Override
+  public String toString()
   {
-    return _data.cpu_id(at(i));
+    return "CPU#" + _id;
   }
-
-  /**
-   * Name of this thread at given index.  Note that names can change during the
-   * lifespan of a thread.
-   */
-  public abstract String toString(int ai);
 
 }

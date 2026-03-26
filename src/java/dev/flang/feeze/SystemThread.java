@@ -44,6 +44,7 @@ class SystemThread extends FeezeThread
   String _name;
   SystemProcess _p;
   int _num;
+  boolean _swapper = false;
 
   SystemThread(Data data, int tpid, int pid, String name, SystemProcess p)
   {
@@ -76,12 +77,35 @@ class SystemThread extends FeezeThread
   {
     super.addAction(at);
     user().cumulative().addAction(at);
+    _swapper = _swapper ||
+      _p._pid == -1 && nameFrom(at).startsWith("swapper/");
   }
 
   @Override
   public boolean isProcess()
   {
     return _tid == _p._pid;
+  }
+
+
+  boolean isSwapper()
+  {
+    return _swapper;
+  }
+
+
+  private String nameFrom(int at)
+  {
+    String n;
+    if (Feeze.new_pid(at) == _tid)
+      {
+        n = _data.new_name(at);
+      }
+    else
+      {
+        n = _data.old_name(at);
+      }
+    return n;
   }
 
 
@@ -94,15 +118,7 @@ class SystemThread extends FeezeThread
 
     byte[] bs = new byte[16];
     var at = _at[ai];
-    String n;
-    if (Feeze.new_pid(at) == _tid)
-      {
-        n = _data.new_name(at);
-      }
-    else
-      {
-        n = _data.old_name(at);
-      }
+    String n = nameFrom(at);
     if (isProcess() && !n.equals(_p._name))
       {
         return n+" ("+_p._name+")";

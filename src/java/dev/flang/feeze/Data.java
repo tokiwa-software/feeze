@@ -37,6 +37,8 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.TreeMap;
 
+import dev.flang.util.ANY;
+
 /*---------------------------------------------------------------------*/
 
 
@@ -45,7 +47,7 @@ import java.util.TreeMap;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-class Data implements Offsets
+class Data extends ANY implements Offsets
 {
   final MappedByteBuffer _b;
   int names_processed = 0;
@@ -58,6 +60,25 @@ class Data implements Offsets
 
   TreeMap<Integer, SystemThread> _threadsMap = new TreeMap<>();
   ArrayList<SystemThread> _threads = new ArrayList<>();
+
+  /**
+   * Map from cpu id to Cpu
+   */
+  TreeMap<Integer, Cpu> _cpusMap = new TreeMap();
+
+  /**
+   * Cpus sorted by id, may be a subset of all available CPUs in case some were
+   * never used.
+   */
+  ArrayList<Cpu> _cpus = new ArrayList<>();
+
+
+  /**
+   * CPU ids for which a Cpu instance has already been created and added to
+   * _cpuMap/_cpus. Used during processNewData.
+   */
+  private BitSet _cpu_ids = new BitSet();
+
 
   ArrayList<Integer> _gaps = new ArrayList<>();
 
@@ -206,6 +227,21 @@ class Data implements Offsets
     return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString();
   }
 
+  /**
+   * Get the CPU id at the given SCHED_SWITCH entry
+   *
+   * @param at the index of the SCHED_SWITCH entry.
+   *
+   * @return the CPU id
+   */
+  int cpu_id(int at)
+  {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
+    return getInt(at, ENTRY_SS_CPU_ID_OFFSET);
+  }
+
   synchronized void processNewData()
   {
     var num_entries = (int) _b.getLong(8);
@@ -252,6 +288,19 @@ class Data implements Offsets
                   var nt = thread(names_processed, false);
                   ot.addAction(names_processed);
                   nt.addAction(names_processed);
+                  var cpu_id = cpu_id(names_processed);
+                  if (cpu_id >= 0)
+                    {
+                      if (!_cpu_ids.get(cpu_id))
+                        {
+                          _cpu_ids.set(cpu_id);
+                          var cpu = new Cpu(this, cpu_id);
+                          _cpusMap.put(cpu_id, cpu);
+                          _cpus.add(cpu);
+                        }
+                      var cpu = _cpusMap.get(cpu_id);
+                      cpu.addAction(names_processed);
+                    }
                   break;
                 }
               default:
@@ -262,15 +311,11 @@ class Data implements Offsets
             names_processed++;
           }
       }
-    /*
-    _threads.sort((t1,t2) ->
-                  Long.compare((long) t1._pid << 32 | t1._tid,
-                               (long) t2._pid << 32 | t2._tid));
-    */
     _threads.sort((t1,t2) ->
                   t1._p._user._num != t2._p._user._num ? Integer.compare(t1._p._user._num, t2._p._user._num) :
                   t1._p._num       != t2._p._num       ? Integer.compare(t1._p._num,       t2._p._num      )
                                                        : Integer.compare(t1._tid,          t2._tid         ));
+    _cpus.sort((c1,c2) -> Integer.compare(c1._id, c2._id));
     for (var n = 0; n < _threads.size(); n++)
       {
         _threads.get(n)._num = n;

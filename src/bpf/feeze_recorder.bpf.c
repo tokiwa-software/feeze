@@ -102,6 +102,7 @@ int on_task_switch(struct trace_event_raw_sched_switch *ctx)
            e->comm[13] = ctx->next_comm[13];
            e->comm[14] = ctx->next_comm[14];
            e->comm[15] = ctx->next_comm[15];
+           e->cpu_id = bpf_get_smp_processor_id();
            e->ns = bpf_ktime_get_ns();
            e->count = __sync_fetch_and_add(&count, 1);
            if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)

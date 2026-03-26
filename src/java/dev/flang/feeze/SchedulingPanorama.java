@@ -87,6 +87,12 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * Distance between two CPU lines when zoom factor is 1.0.
+   */
+  static final int CPU_SPACING = 8;
+
+
+  /**
    * Factor for one zoom step
    */
   static final double ZOOM_STEP = 1.003125;
@@ -222,6 +228,9 @@ class SchedulingPanorama extends Panorama
   /**
    * Cached results for {@code threadY}.
    */
+  volatile int   _cpusY;
+  volatile int   _cpusYbottom;
+  volatile int[] _cpuY;
   volatile int[] _threadYUserTop;
   volatile int[] _threadYUserBot;
   volatile int[] _threadYProcTop;
@@ -231,6 +240,10 @@ class SchedulingPanorama extends Panorama
   volatile int[] _threadYBottom;
 
 
+  /**
+   * All the threads shown here.
+   */
+  volatile ArrayList<FeezeThread> _threads = null;
 
   /**
    * Is thread for given index shown? This is set by {@code threadY()}
@@ -434,11 +447,22 @@ class SchedulingPanorama extends Panorama
    */
   public int dataHeight()
   {
-    return zoom(NORMAL_THREAD_SPACING*(numThreads()+3));
+    var result = 0;
+    if (numThreads() > 0)
+      {
+        var ignore = threadY(0); // make sure _threadYBottom is non-null
+        result = _threadYBottom[numThreads()-1] + zoom(NORMAL_THREAD_SPACING*3);
+      }
+    return result + zoom(NORMAL_THREAD_SPACING*3);
   }
 
-
-  volatile ArrayList<FeezeThread> _threads = null;
+  /**
+   * The number of CPUs to be displayed.
+   */
+  public int numCpus()
+  {
+    return _data._cpus.size();
+  }
 
   /**
    * number of displayed threads
@@ -554,6 +578,31 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * Top y coordinate of the CPUs area
+   */
+  int cpusY()
+  {
+    return _cpusY+topFrame();
+  }
+
+  /**
+   * Bottom y coordinate of the CPUs area
+   */
+  int cpusYbottom()
+  {
+    return _cpusYbottom+topFrame();
+  }
+
+  /**
+   * y coordinate of each CPU.
+   */
+  int cpuY(int i)
+  {
+    return _cpuY[i]+topFrame();
+  }
+
+
+  /**
    * zoomed y coordinate of thread with given index.
    *
    * @param t a thread index, may be >=numThreads()
@@ -627,6 +676,16 @@ class SchedulingPanorama extends Panorama
             _threadYBottom  = new int    [numThreads()];
             _threadShown    = new boolean[numThreads()];
             double y = ts;
+            _cpusY = (int) y;
+            y = y + zoomedUserNameHeight() + _zoom.zoom(CPU_SPACING+4);
+            _cpuY = new int[_data._cpus.size()];
+            for (var i = 0; i<numCpus(); i++)
+              {
+                _cpuY[i] = (int) y;
+                y = y + _zoom.zoom(CPU_SPACING);
+              }
+            _cpusYbottom = (int) y;
+            y = y + zoom(4);
             for (var i = 0; i<numThreads(); i++)
               {
                 var ti = thread(i);
@@ -791,12 +850,13 @@ class SchedulingPanorama extends Panorama
     double f = 0;
     if (t.numActions() > 0)
       {
+        var rw = r.width == 0 ? 1024 : r.width;
         var til = actionAt(t, r.x        );
-        var tim = actionAt(t, r.x+r.width);
+        var tim = actionAt(t, r.x+rw);
         var tir = Math.min(t.numActions()-1, tim+1);
         var il = t.at(til);   // index of action left  of r.x
-        var im = t.at(tim);   // index of action left  of r.x+r.width
-        var ir = t.at(tir);   // index of action right of r.x+r.width
+        var im = t.at(tim);   // index of action left  of r.x+rw
+        var ir = t.at(tir);   // index of action right of r.x+rw
         f = 1;
         if (il == im &&                      // no action within visible area
             (index_to_posx(il) >= r.x   ||
@@ -805,13 +865,13 @@ class SchedulingPanorama extends Panorama
           {
             int xl = index_to_posx(il);
             int xr = index_to_posx(ir);
-            int transition = r.width/2;  // width of the transition area during which we zoom threads in or out
-            var fl = xl <  r.x         ? (double) Math.max(0, transition - (r.x-xl)) / transition :
-                     xl <= r.x+r.width ? 1
-                                       : 0;
-            var fr = xr >  r.x+r.width ? (double) Math.max(0, transition - (xr-r.x-r.width)) / transition :
-                     xr >= r.x         ? 1
-                                       : 0;
+            int transition = rw/2;  // width of the transition area during which we zoom threads in or out
+            var fl = xl <  r.x    ? (double) Math.max(0, transition - (r.x-xl)) / transition :
+                     xl <= r.x+rw ? 1
+                                  : 0;
+            var fr = xr >  r.x+rw ? (double) Math.max(0, transition - (xr-r.x-rw)) / transition :
+                     xr >= r.x    ? 1
+                                  : 0;
             f = Math.max(fl,fr);
           }
       }
@@ -870,7 +930,7 @@ class SchedulingPanorama extends Panorama
   /**
    * For a given x position, find the next action left of that position.
    */
-  int actionAt(FeezeThread t, int x)
+  int actionAt(ActionSubSet t, int x)
   {
     var al = 0;
     var ar = t.numActions()-1;
@@ -930,14 +990,123 @@ class SchedulingPanorama extends Panorama
       {
         if (_data.entryCount() > 0)
           {
+
+            var pr = SchedulingPanorama.this.getVisibleRect();
+            if (numCpus() > 0 &&
+                cpusY()                               <  r.y+r.height &&
+                cpuY(numCpus()-1) + zoom(CPU_SPACING) >= r.y             )
+              {
+                g.setColor(PROCESS_COLS3[2][0]);
+                g.fillRect(0, cpusY(), getWidth(), cpusYbottom()-_cpusY);
+                g.setColor(PROCESS_COLS3[2][0].darker());
+                g.fillRect(0, cpusY(), getWidth(), cpuY(0)-_zoom.zoom(CPU_SPACING)-cpusY());
+
+                for(var i = 0; i<numCpus(); i++)
+                  {
+                    // NYI: CLEANUP: the basic logic for drawing and blurr
+                    // handling used here is repeated below for threads. Would
+                    // be nice to put this into a method or class and avoid
+                    // duplication!
+
+                    var cpu = _data._cpus.get(i);
+                    var y = cpuY(i);
+
+                    int blurredUpToX = -1;
+                    int from_a = actionAt(cpu, r.x);
+                    int to_a = actionAt(cpu, r.x+r.width)+1;
+                    for (var a = from_a; a<to_a; a++)
+                      {
+                        Color nextCol;
+                        int nextWidth;
+                        if (cpu.stopsRunning(a))
+                          {
+                            nextCol = Color.blue;
+                            nextWidth = 1;
+                          }
+                        else if (cpu.startsRunning(a) || cpu.continuesRunning(a))
+                          {
+                            nextCol = DARK_GREEN;
+                            nextWidth = 6;
+                          }
+                        else
+                          {
+                            nextCol = Color.magenta;
+                            nextWidth = 8;
+                          }
+                        var nl = _data.nanosAtSwitch(cpu.at(a))-_data.nanosMin();
+                        var nr = (a+1 >= cpu.numActions() ? _data.nanosMax()
+                                                          : _data.nanosAtSwitch(cpu.at(a+1))) -_data.nanosMin();
+
+                        if (ANY.CHECKS) ANY.check
+                          (nl <= nr);   // event times should be monotonic increasing
+
+                        var xl = nanos_to_posx(nl);
+                        var xr = nanos_to_posx(nr);
+                        var nnr = (a+2 >= cpu.numActions() ? _data.nanosMax()
+                                                           : _data.nanosAtSwitch(cpu.at(a+2))) -_data.nanosMin();
+                        if (a == 0)
+                          {
+                            if (cpu.stopsRunning(a))
+                              {
+                                g.setColor(DARK_GREEN);
+                                _zoom.drawHLine(g,6,nanos_to_posx(0),y,xl);
+                              }
+                            else if (cpu.startsRunning(a))
+                              {
+                                g.setColor(Color.blue);
+                                _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
+                              }
+                            else
+                              {
+                                nextCol = Color.magenta;
+                                nextWidth = 8;
+                              }
+                          }
+
+                        if (posx_to_nanos(xl+2) < nnr)
+                          {
+                            g.setColor(nextCol);
+
+                            _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
+                          }
+                        else if (blurredUpToX < xr)
+                          {
+                            g.setColor(VERY_DARK_GREEN);
+                            _zoom.drawHLine(g,6,xl,y,xr-1);
+                            blurredUpToX = xr;
+                          }
+
+                        var a0 = a;
+                        if (xr > r.x+r.width)
+                          {
+                            a = cpu.numActions();
+                          }
+                        if (a+1 >= cpu.numActions())
+                          {
+                            if (cpu.stopsRunning(a0))
+                              {
+                                g.setColor(Color.blue);
+                                _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                              }
+                            else if (cpu.startsRunning(a0))
+                              {
+                                g.setColor(DARK_GREEN);
+                                _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                              }
+                          }
+                      }
+                  }
+                g.setColor(Color.white);
+                g.fillRect(0, cpusYbottom(), getWidth(), threadYUserTop(0)-cpusYbottom());
+
+              }
+
             var c = Color.gray;
             int w = 1;
             long x0 = _data.nanosMin();
             long xn = _data.nanosMax();
             for (var i = threadAt(r.y); threadY(i-1) <= r.y+r.height && i < numThreads(); i++)
               {
-                int drawCnt = 0;
-                int drawCnt2 = 0;
                 var last_x = x0;
                 var t = thread(i);
                 var y = threadY(i);
@@ -988,6 +1157,7 @@ class SchedulingPanorama extends Panorama
                   }
                 for (var a = from_a; a<to_a; a++)
                   {
+                    int cpu = -1;
                     Color nextCol;
                     int nextWidth;
                     if (t.stopsRunning(a))
@@ -999,6 +1169,7 @@ class SchedulingPanorama extends Panorama
                       {
                         nextCol = DARK_GREEN;
                         nextWidth = 15;
+                        cpu = t.cpu_id(a);
                       }
                     else
                       {
@@ -1012,7 +1183,6 @@ class SchedulingPanorama extends Panorama
                     if (ANY.CHECKS) ANY.check
                       (nl <= nr);   // event times should be monotonic increasing
 
-                    nr = Math.max(nl,nr); // NYI: REMOVE when it is ensured that time is monotonic!
                     var xl = nanos_to_posx(nl);
                     var xr = nanos_to_posx(nr);
                     var nnr = (a+2 >= t.numActions() ? _data.nanosMax()
@@ -1038,14 +1208,25 @@ class SchedulingPanorama extends Panorama
 
                     if (posx_to_nanos(xl+2) < nnr)
                       {
-                        drawCnt++;
                         g.setColor(nextCol);
 
                         _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
+
+                        // disabled code to show the CPU we are running on. Better make this part of a tooltip!
+                        if (false &&
+                            cpu >= 0)
+                          {
+                            var str = Integer.toString(cpu);
+                            var str_w = _zoom.stringWidth(g, str);
+                            if (zoom(2)*2 + str_w <= xr-xl)
+                              {
+                                g.setColor(Color.black);
+                                _zoom.drawString(g, str, xl + zoom(2), (int) (y + zoom(nextWidth * 0.3)));
+                              }
+                          }
                       }
                     else if (blurredUpToX < xr)
                       {
-                        drawCnt2++;
                         g.setColor(VERY_DARK_GREEN);
                         _zoom.drawHLine(g,15,xl,y,xr-1);
                         blurredUpToX = xr;
@@ -1467,8 +1648,10 @@ class SchedulingPanorama extends Panorama
               {
                 var ti = threadAt(y);
                 var u = thread(ti).user();
-                if (ti <= numThreads()      &&
+                if (ti >= 0 &&
+                    ti <= numThreads()      &&
                     isFirstThreadOfUser(ti) &&
+                    y >= threadYUserTop(ti) &&
                     y < threadYUserBot(ti)  &&
                     !inDragArea(x, y))
                   {
@@ -1552,12 +1735,30 @@ class SchedulingPanorama extends Panorama
     protected void paintComponent(Graphics g)
     {
       var gapEighth   = gapEighth();
+      var cpuLineX    = (int) (16 * gapEighth);
       var userLineX   = (int) ( 8 * gapEighth);
       var procLineX   = (int) (16 * gapEighth);
       var threadNameX = (int) (24 * gapEighth);
 
       var pr = SchedulingPanorama.this.getVisibleRect();
-      var clipr = g.getClipBounds(); // NYI: Remove! Should not be needed, and really not added to coordinates!
+      var clipr = g.getClipBounds();
+      if (numCpus() > 0 &&
+          cpusY()                               <  clipr.y+clipr.height &&
+          cpuY(numCpus()-1) + zoom(CPU_SPACING) >= clipr.y                 )
+        {
+          g.setColor(PROCESS_COLS3[2][0]);
+          g.fillRect(0, cpusY(), getWidth(), cpusYbottom()-_cpusY);
+          g.setColor(PROCESS_COLS3[2][0].darker());
+          g.fillRect(0, cpusY(), getWidth(), cpuY(0)-_zoom.zoom(CPU_SPACING)-cpusY());
+          for(var i = 0; i<numCpus(); i++)
+            {
+              g.setColor(Color.gray);
+              _zoom.drawHLine(g,1,0, cpuY(i), getWidth());
+            }
+          g.setColor(Color.white);
+          _zoom.drawString(g, "CPUs", cpuLineX, (int) (cpuY(0) - _zoom.zoom(CPU_SPACING) - zoomedUserNameHeight()/6));
+          g.fillRect(0, cpusYbottom(), getWidth(), threadYUserTop(0)-cpusYbottom());
+        }
       var i = Math.max(0, threadAt(clipr.y)-1);
       for (; threadY(i-1) <= clipr.y+clipr.height && i < numThreads(); i++)
         {

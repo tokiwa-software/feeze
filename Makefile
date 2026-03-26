@@ -46,7 +46,7 @@ LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-BPFTOOL ?= /usr/lib/linux-tools/6.8.0-100-generic/bpftool
+BPFTOOL ?= /usr/lib/linux-tools/6.8.0-106-generic/bpftool
 
 JAVA_SOURCES := $(shell find $(FEEZE_SRC_JAVA) -name "*.java")
 JAVA_MAIN := Feeze
@@ -145,7 +145,7 @@ build/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
 	chmod +x $@
 
 # run the GUI. NYI: to be replaced by fuzion implementation, make taret run_control
-run: build/bin/feeze
+run: build/bin/feeze $(BUILD_DIR)/bin/$(C_MAIN)
 	./$^
 
 $(BUILD_DIR)/feeze.jmod: $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE)

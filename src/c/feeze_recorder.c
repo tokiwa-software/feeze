@@ -111,6 +111,7 @@ struct sched_switch_payload
   //  int new_pri;
   char	new_name[16 /* TASK_COMM_LEN */];
   uint64_t ns;
+  uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
 
@@ -531,6 +532,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           // en.payload.ss.new_pri = e->new_pri;
           memcpy(&en.payload.ss.new_name, &e->comm, sizeof(en.payload.ss.new_name));
           en.payload.ss.ns = e->ns;
+          en.payload.ss.cpu_id = e->cpu_id;
           en.payload.ss.count = e->count;
           post_entry(&en);
         }

@@ -321,6 +321,14 @@ class Zoom
   }
 
 
+  int stringWidth(Graphics g, String str)
+  {
+    g.setFont(standardFont());
+    var fm = g.getFontMetrics();
+    return fm.stringWidth(str);
+  }
+
+
 
   /**
    * drawString draws a given string
