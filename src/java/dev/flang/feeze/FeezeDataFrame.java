@@ -30,6 +30,7 @@ package dev.flang.feeze;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -45,8 +46,11 @@ import javax.swing.JPanel;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-public class FeezeDataFrame
+public class FeezeDataFrame extends JFrame
 {
+
+  boolean _closed = false;
+
 
   /**
    * Helper to create a JButton with given text, KeyEvent and tool tip.
@@ -61,11 +65,9 @@ public class FeezeDataFrame
 
   FeezeDataFrame(Data data)
   {
-
+    super("Feeze Scheduling Data");
     javax.swing.SwingUtilities.invokeLater(()->
       {
-        var frame = new JFrame("Feeze Scheduling Data");
-
         var b1 = button("🠊🠈", KeyEvent.VK_C, "compress time axis");
         var b2 = button("🠈🠊", KeyEvent.VK_X, "expand time axis");
         var b3 = button("+zoom", KeyEvent.VK_Z, "zoom in");
@@ -80,21 +82,56 @@ public class FeezeDataFrame
         content.add(panorama.scroller(0, panorama.dataHeight()), BorderLayout.CENTER);
         content.add(controls, BorderLayout.SOUTH);
         content.setOpaque(true);
-        frame.setContentPane(content);
-        frame.pack();
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        frame.addWindowListener(new WindowAdapter()
+
+        setContentPane(content);
+        pack();
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter()
           {
             @Override
             public void windowClosing(WindowEvent e)
             {
-              // NYI: HACK: Must properly shutdown all threads serving this data frame!
-              frame.setVisible(false);
-              frame.dispose();
+              closeThisFrame();
             }
           });
-        frame.setVisible(true);
+        setFocusable(true);
+        addKeyListener(new KeyListener()
+          {
+            @Override public void keyPressed(KeyEvent key) { }
+            @Override public void keyReleased(KeyEvent key) { }
+            @Override public void keyTyped(KeyEvent key) {
+              if (key.getKeyChar() == 'w' - 0x60)
+                {
+                  closeThisFrame();
+                }
+              else if (key.getKeyChar() == 'q' - 0x60)
+                {
+                  Feeze.askToQuit(FeezeDataFrame.this);
+                }
+              else if (false)
+                {
+                  System.out.println("typed: "+key.getKeyCode()+" "+key.getExtendedKeyCode()+" "+key.getKeyChar()+" "+((int)key.getKeyChar())+" w:"+('w'-0x90));
+                }
+            }
+          });
+
+        setVisible(true);
+        var ignore = Feeze._openDataFrames_.incrementAndGet();
       });
   }
+
+  synchronized void closeThisFrame()
+  {
+    if (!_closed)
+      {
+        _closed = true;
+
+        // NYI: HACK: Must properly shutdown all threads serving this data frame!
+        setVisible(false);
+        dispose();
+        var ignore = Feeze._openDataFrames_.decrementAndGet();
+      }
+  }
+
 
 }

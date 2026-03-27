@@ -40,6 +40,11 @@ import java.nio.file.Path;
 
 import java.nio.channels.FileChannel;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+
 import dev.flang.util.Threads;
 
 /*---------------------------------------------------------------------*/
@@ -75,6 +80,13 @@ public class Feeze implements Offsets
   public static final String FEEZE_HOME = System.getProperties().getProperty("feeze.home",".");
 
   static MappedByteBuffer b;
+
+
+  /**
+   * Counter for open data frames to make sure we do not quit without asking if
+   * they should be closed.
+   */
+  static AtomicInteger _openDataFrames_ = new AtomicInteger(0);
 
 
 
@@ -176,6 +188,18 @@ public class Feeze implements Offsets
   static int count(int at)
   {
     return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_COUNT_OFFSET);
+  }
+
+  static void askToQuit(JFrame frame)
+  {
+    if (_openDataFrames_.get() == 0 ||
+        JOptionPane.showConfirmDialog(frame,
+                                      "Exit feeze and close all data windows?",
+                                      Feeze.DIALOG_HEADER,
+                                      JOptionPane.YES_NO_OPTION) == 0)
+      {
+        System.exit(0);
+      }
   }
 
 }

@@ -33,6 +33,7 @@ import java.awt.GridLayout;
 
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -57,7 +58,7 @@ import dev.flang.util.Threads;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-public class ControlFrame
+public class ControlFrame extends JFrame
 {
 
 
@@ -79,10 +80,10 @@ public class ControlFrame
 
   ControlFrame()
   {
+    super("Feeze Control");
+
     javax.swing.SwingUtilities.invokeLater(()->
       {
-        var frame = new JFrame("Feeze Control");
-
         var shMemNameLabel = new JLabel("Shared Memory File:");
         _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
         _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
@@ -142,45 +143,38 @@ public class ControlFrame
            .addComponent(ro));
         var content = panel;
         content.setOpaque(true);
-        frame.setContentPane(content);
-        frame.pack();
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        frame.addWindowListener(new WindowAdapter()
+        setContentPane(content);
+        pack();
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter()
           {
             @Override
             public void windowClosing(WindowEvent e)
             {
-              if (JOptionPane.showConfirmDialog(frame,
-                                                "Exit feeze and close all data windows?",
-                                                Feeze.DIALOG_HEADER,
-                                            JOptionPane.YES_NO_OPTION) == 0)
+              Feeze.askToQuit(ControlFrame.this);
+            }
+          });
+        setFocusable(true);
+        addKeyListener(new KeyListener()
+          {
+            @Override public void keyPressed(KeyEvent key) { }
+            @Override public void keyReleased(KeyEvent key) { }
+            @Override public void keyTyped(KeyEvent key) {
+              if (key.getKeyChar() == 'w' - 0x60)
                 {
-                  System.exit(0);
+                  Feeze.askToQuit(ControlFrame.this);
+                }
+              else if (key.getKeyChar() == 'q' - 0x60)
+                {
+                  Feeze.askToQuit(ControlFrame.this);
+                }
+              else if (false)
+                {
+                  System.out.println("typed: "+key.getKeyCode()+" "+key.getExtendedKeyCode()+" "+key.getKeyChar()+" "+((int)key.getKeyChar())+" w:"+('w'-0x90));
                 }
             }
           });
-
-        /* NYI: key events do not work, check why!
-
-        (!true ? panel : true ? frame : _recorderOutput)
-          .addKeyListener(new KeyAdapter() {
-              @Override
-              public void keyPressed(KeyEvent e) {
-                System.out.println("Key pressed: " + e.getKeyChar());
-              }
-              @Override
-              public void keyReleased(KeyEvent e) {
-                System.out.println("Key pressed: " + e.getKeyChar());
-              }
-              @Override
-              public void keyTyped(KeyEvent e) {
-                System.out.println("Key pressed: " + e.getKeyChar());
-              }
-            }
-            );
-        */
-
-        frame.setVisible(true);
+        setVisible(true);
 
         var _listener = new ControlListener(this);
       });
