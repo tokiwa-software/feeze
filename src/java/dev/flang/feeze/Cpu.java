@@ -52,15 +52,17 @@ class Cpu extends ActionSubSet
     super.addAction(at);
   }
 
-
+  @Override
   public boolean startsRunning(int i)
   {
     return !_data.newThreadAt(at(i)).isSwapper();
   }
+  @Override
   public boolean continuesRunning(int i)
   {
     return startsRunning(i) && stopsRunning(i);
   }
+  @Override
   public boolean stopsRunning(int i)
   {
     return !_data.oldThreadAt(at(i)).isSwapper();

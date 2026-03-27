@@ -58,14 +58,17 @@ abstract class FeezeThread extends ActionSubSet
   public abstract boolean isProcess();
 
 
+  @Override
   public boolean startsRunning(int i)
   {
     return this == _data.newThreadAt(at(i));
   }
+  @Override
   public boolean continuesRunning(int i)
   {
     return startsRunning(i) && stopsRunning(i);
   }
+  @Override
   public boolean stopsRunning(int i)
   {
     return this == _data.oldThreadAt(at(i));

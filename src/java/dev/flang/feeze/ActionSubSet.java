@@ -85,4 +85,10 @@ abstract class ActionSubSet extends ANY
         n--;
       }
   }
+
+
+  public abstract boolean startsRunning(int i);
+  public abstract boolean continuesRunning(int i);
+  public abstract boolean stopsRunning(int i);
+
 }

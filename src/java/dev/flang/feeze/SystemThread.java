@@ -121,13 +121,13 @@ class SystemThread extends FeezeThread
     String n = nameFrom(at);
     if (isProcess() && !n.equals(_p._name))
       {
-        return n+" ("+_p._name+")";
+        n = n + " (" + _p._name + ")";
       }
-    else
+    if (!true)
       {
-        return n;
+        n = _tid + "/" + _pid + " " + n + " (" + _p + ")";
       }
-    // return _tid+" "+n+" ("+_p+")";
+    return n;
   }
 
   @Override

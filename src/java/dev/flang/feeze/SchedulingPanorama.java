@@ -986,6 +986,115 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * Show when a thread or CPU is running along a horizontal line
+   *
+   * @param g the raphics to draw to
+   *
+   * @param resource the FeezeThread of Cpu to show
+   *
+   * @param y the y coordinate of the horizontal line
+   *
+   * @param r the visible rectangle to draw to
+   *
+   * @param passiveWidth the width of an inactive period
+   *
+   * @param activeWidth the width of an active period
+   */
+  void showRunning(Graphics g,
+                   ActionSubSet resource,
+                   int y,
+                   Rectangle r,
+                   int passiveWidth,
+                   int activeWidth)
+  {
+    int blurredUpToX = -1;
+    int from_a = actionAt(resource, r.x);
+    int to_a = actionAt(resource, r.x+r.width)+1;
+    for (var a = from_a; a<to_a; a++)
+      {
+        Color nextCol;
+        int nextWidth;
+        if (resource.stopsRunning(a))
+          {
+            nextCol = Color.gray;
+            nextWidth = passiveWidth;
+          }
+        else if (resource.startsRunning(a) || resource.continuesRunning(a))
+          {
+            nextCol = DARK_GREEN;
+            nextWidth = activeWidth;
+          }
+        else
+          {
+            nextCol = Color.magenta;
+            nextWidth = activeWidth + activeWidth / 3;
+          }
+        var nl = _data.nanosAtSwitch(resource.at(a))-_data.nanosMin();
+        var nr = (a+1 >= resource.numActions() ? _data.nanosMax()
+                                               : _data.nanosAtSwitch(resource.at(a+1))) -_data.nanosMin();
+
+        if (ANY.CHECKS) ANY.check
+          (nl <= nr);   // event times should be monotonic increasing
+
+        var xl = nanos_to_posx(nl);
+        var xr = nanos_to_posx(nr);
+        var nnr = (a+2 >= resource.numActions() ? _data.nanosMax()
+                                                : _data.nanosAtSwitch(resource.at(a+2))) -_data.nanosMin();
+        if (a == 0)
+          {
+            if (resource.stopsRunning(a))
+              {
+                g.setColor(DARK_GREEN);
+                _zoom.drawHLine(g,activeWidth,nanos_to_posx(0),y,xl);
+              }
+            else if (resource.startsRunning(a))
+              {
+                g.setColor(Color.gray);
+                _zoom.drawHLine(g,passiveWidth,nanos_to_posx(0),y,xl);
+              }
+            else
+              {
+                nextCol = Color.magenta;
+                nextWidth = activeWidth + activeWidth / 3;
+              }
+          }
+
+        if (posx_to_nanos(xl+2) < nnr)
+          {
+            g.setColor(nextCol);
+
+            _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
+          }
+        else if (blurredUpToX < xr)
+          {
+            g.setColor(VERY_DARK_GREEN);
+            _zoom.drawHLine(g,activeWidth,xl,y,xr-1);
+            blurredUpToX = xr;
+          }
+
+        var a0 = a;
+        if (xr > r.x+r.width)
+          {
+            a = resource.numActions();
+          }
+        if (a+1 >= resource.numActions())
+          {
+            if (resource.stopsRunning(a0))
+              {
+                g.setColor(Color.gray);
+                _zoom.drawHLine(g,passiveWidth,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+              }
+            else if (resource.startsRunning(a0))
+              {
+                g.setColor(DARK_GREEN);
+                _zoom.drawHLine(g,activeWidth,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+              }
+          }
+      }
+  }
+
+
+  /**
    * paintPanorama
    *
    * @param g
@@ -1013,7 +1122,7 @@ class SchedulingPanorama extends Panorama
                 if (_cpusEnabled)
                   {
                     g.setColor(PROCESS_COLS3[2][0]);
-                    g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom()-_cpusY);
+                    g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom()-cpusY());
 
                     for(var i = 0; i<numCpus(); i++)
                       {
@@ -1022,93 +1131,10 @@ class SchedulingPanorama extends Panorama
                         // be nice to put this into a method or class and avoid
                         // duplication!
 
+
                         var cpu = _data.cpu(i);
                         var y = cpuY(i);
-
-                        int blurredUpToX = -1;
-                        int from_a = actionAt(cpu, r.x);
-                        int to_a = actionAt(cpu, r.x+r.width)+1;
-                        for (var a = from_a; a<to_a; a++)
-                          {
-                            Color nextCol;
-                            int nextWidth;
-                            if (cpu.stopsRunning(a))
-                              {
-                                nextCol = Color.gray;
-                                nextWidth = 1;
-                              }
-                            else if (cpu.startsRunning(a) || cpu.continuesRunning(a))
-                              {
-                                nextCol = DARK_GREEN;
-                                nextWidth = 6;
-                              }
-                            else
-                              {
-                                nextCol = Color.magenta;
-                                nextWidth = 8;
-                              }
-                            var nl = _data.nanosAtSwitch(cpu.at(a))-_data.nanosMin();
-                            var nr = (a+1 >= cpu.numActions() ? _data.nanosMax()
-                                                              : _data.nanosAtSwitch(cpu.at(a+1))) -_data.nanosMin();
-
-                            if (ANY.CHECKS) ANY.check
-                              (nl <= nr);   // event times should be monotonic increasing
-
-                            var xl = nanos_to_posx(nl);
-                            var xr = nanos_to_posx(nr);
-                            var nnr = (a+2 >= cpu.numActions() ? _data.nanosMax()
-                                                               : _data.nanosAtSwitch(cpu.at(a+2))) -_data.nanosMin();
-                            if (a == 0)
-                              {
-                                if (cpu.stopsRunning(a))
-                                  {
-                                    g.setColor(DARK_GREEN);
-                                    _zoom.drawHLine(g,6,nanos_to_posx(0),y,xl);
-                                  }
-                                else if (cpu.startsRunning(a))
-                                  {
-                                    g.setColor(Color.gray);
-                                    _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
-                                  }
-                                else
-                                  {
-                                    nextCol = Color.magenta;
-                                    nextWidth = 8;
-                                  }
-                              }
-
-                            if (posx_to_nanos(xl+2) < nnr)
-                              {
-                                g.setColor(nextCol);
-
-                                _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
-                              }
-                            else if (blurredUpToX < xr)
-                              {
-                                g.setColor(VERY_DARK_GREEN);
-                                _zoom.drawHLine(g,6,xl,y,xr-1);
-                                blurredUpToX = xr;
-                              }
-
-                            var a0 = a;
-                            if (xr > r.x+r.width)
-                              {
-                                a = cpu.numActions();
-                              }
-                            if (a+1 >= cpu.numActions())
-                              {
-                                if (cpu.stopsRunning(a0))
-                                  {
-                                    g.setColor(Color.gray);
-                                    _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-                                  }
-                                else if (cpu.startsRunning(a0))
-                                  {
-                                    g.setColor(DARK_GREEN);
-                                    _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-                                  }
-                              }
-                          }
+                        showRunning(g, cpu, y, r, 1, 6);
                       }
                   }
                 g.setColor(Color.white);
@@ -1144,127 +1170,47 @@ class SchedulingPanorama extends Panorama
                 g.setColor(PROCESS_COLS3[((1+userNum(i)) & 1)][processNum(i) & 1]);
                 g.fillRect(r.x, yproct, r.width, yb-yproct);
 
-                if (!_threadShown[i])
+                if (_threadShown[i])
+                  {
+                    int NAME_DIST_X = 384;
+                    long NAME_DIST_NS = 1;
+                    while (compress_x(NAME_DIST_NS) < NAME_DIST_X)
+                      {
+                        NAME_DIST_NS += NAME_DIST_NS;
+                      }
+                    long nameShownAtNS = posx_to_nanos(r.x) & ~(NAME_DIST_NS-1);
+                    int nameShownAt = nanos_to_posx(nameShownAtNS);
+                    while (nameShownAtNS < _data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin() && nameShownAt < r.x+r.width)
+                      {
+                        int x = nameShownAt;
+                        g.setColor(gray);
+                        _zoom.drawString(g, t.toString(actionAt(t, x)), x, y - zoom(2));
+                        nameShownAtNS += NAME_DIST_NS;
+                        nameShownAt = nanos_to_posx(nameShownAtNS);
+                      }
+
+                    showRunning(g, t, y, r, 1, 15);
+
+                    /* disabled code to show the CPU we are running on. Better make this part of a tooltip!
+                       cpu = t.cpu_id(a);
+                            if (false &&
+                                cpu >= 0)
+                              {
+                                var str = Integer.toString(cpu);
+                                var str_w = _zoom.stringWidth(g, str);
+                                if (zoom(2)*2 + str_w <= xr-xl)
+                                  {
+                                    g.setColor(Color.black);
+                                    _zoom.drawString(g, str, xl + zoom(2), (int) (y + zoom(nextWidth * 0.3)));
+                                  }
+                              }
+                    */
+                  }
+                else // not shown:
                   {
                     g.setColor(gray);
                     _zoom.drawHLine(g,1,nanos_to_posx(0),y,nanos_to_posx(xn-x0));
                     continue;
-                  }
-
-                int blurredUpToX = -1;
-                int from_a = actionAt(t, r.x);
-                int to_a = actionAt(t, r.x+r.width)+1;
-                int NAME_DIST_X = 384;
-                long NAME_DIST_NS = 1;
-                while (compress_x(NAME_DIST_NS) < NAME_DIST_X)
-                  {
-                    NAME_DIST_NS += NAME_DIST_NS;
-                  }
-                long nameShownAtNS = posx_to_nanos(r.x) & ~(NAME_DIST_NS-1);
-                int nameShownAt = nanos_to_posx(nameShownAtNS);
-                while (nameShownAtNS < _data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin() && nameShownAt < r.x+r.width)
-                  {
-                    int x = nameShownAt;
-                    g.setColor(gray);
-                    _zoom.drawString(g, t.toString(from_a), x, y - zoom(2));
-                    nameShownAtNS += NAME_DIST_NS;
-                    nameShownAt = nanos_to_posx(nameShownAtNS);
-                  }
-                for (var a = from_a; a<to_a; a++)
-                  {
-                    int cpu = -1;
-                    Color nextCol;
-                    int nextWidth;
-                    if (t.stopsRunning(a))
-                      {
-                        nextCol = Color.gray;
-                        nextWidth = 1;
-                      }
-                    else if (t.startsRunning(a) || t.continuesRunning(a))
-                      {
-                        nextCol = DARK_GREEN;
-                        nextWidth = 15;
-                        cpu = t.cpu_id(a);
-                      }
-                    else
-                      {
-                        nextCol = Color.magenta;
-                        nextWidth = 20;
-                      }
-                    var nl = _data.nanosAtSwitch(t.at(a))-_data.nanosMin();
-                    var nr = (a+1 >= t.numActions() ? _data.nanosMax()
-                                                    : _data.nanosAtSwitch(t.at(a+1))) -_data.nanosMin();
-
-                    if (ANY.CHECKS) ANY.check
-                      (nl <= nr);   // event times should be monotonic increasing
-
-                    var xl = nanos_to_posx(nl);
-                    var xr = nanos_to_posx(nr);
-                    var nnr = (a+2 >= t.numActions() ? _data.nanosMax()
-                                                     : _data.nanosAtSwitch(t.at(a+2))) -_data.nanosMin();
-                    if (a == 0)
-                      {
-                        if (t.stopsRunning(a))
-                          {
-                            g.setColor(DARK_GREEN);
-                            _zoom.drawHLine(g,15,nanos_to_posx(0),y,xl);
-                          }
-                        else if (t.startsRunning(a))
-                          {
-                            g.setColor(Color.gray);
-                            _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
-                          }
-                        else
-                          {
-                            nextCol = Color.magenta;
-                            nextWidth = 20;
-                          }
-                      }
-
-                    if (posx_to_nanos(xl+2) < nnr)
-                      {
-                        g.setColor(nextCol);
-
-                        _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
-
-                        // disabled code to show the CPU we are running on. Better make this part of a tooltip!
-                        if (false &&
-                            cpu >= 0)
-                          {
-                            var str = Integer.toString(cpu);
-                            var str_w = _zoom.stringWidth(g, str);
-                            if (zoom(2)*2 + str_w <= xr-xl)
-                              {
-                                g.setColor(Color.black);
-                                _zoom.drawString(g, str, xl + zoom(2), (int) (y + zoom(nextWidth * 0.3)));
-                              }
-                          }
-                      }
-                    else if (blurredUpToX < xr)
-                      {
-                        g.setColor(VERY_DARK_GREEN);
-                        _zoom.drawHLine(g,15,xl,y,xr-1);
-                        blurredUpToX = xr;
-                      }
-
-                    var a0 = a;
-                    if (xr > r.x+r.width)
-                      {
-                        a = t.numActions();
-                      }
-                    if (a+1 >= t.numActions())
-                      {
-                        if (t.stopsRunning(a0))
-                          {
-                            g.setColor(Color.gray);
-                            _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-                          }
-                        else if (t.startsRunning(a0))
-                          {
-                            g.setColor(DARK_GREEN);
-                            _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-                          }
-                      }
                   }
               }
             var from_gap = Math.max(0,gapAt(r.x)-1);
