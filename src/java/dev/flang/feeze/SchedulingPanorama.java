@@ -89,7 +89,7 @@ class SchedulingPanorama extends Panorama
   /**
    * Distance between two CPU lines when zoom factor is 1.0.
    */
-  static final int CPU_SPACING = 8;
+  static final int CPU_SPACING = 11;
 
 
   /**
@@ -185,6 +185,7 @@ class SchedulingPanorama extends Panorama
    * the data.
    */
   final Data _data;
+  boolean _cpusEnabled = false;
   final boolean[] _usersEnabled;
 
 
@@ -229,8 +230,9 @@ class SchedulingPanorama extends Panorama
    * Cached results for {@code threadY}.
    */
   volatile int   _cpusY;
-  volatile int   _cpusYbottom;
+  volatile int   _cpusYHeaderBottom;
   volatile int[] _cpuY;
+  volatile int   _cpusYBottom;
   volatile int[] _threadYUserTop;
   volatile int[] _threadYUserBot;
   volatile int[] _threadYProcTop;
@@ -461,7 +463,7 @@ class SchedulingPanorama extends Panorama
    */
   public int numCpus()
   {
-    return _data._cpus.size();
+    return _data.numCpus();
   }
 
   /**
@@ -499,7 +501,6 @@ class SchedulingPanorama extends Panorama
           }
       }
     return _threads.size();
-    // return _data._threads.size();
   }
 
 
@@ -582,15 +583,23 @@ class SchedulingPanorama extends Panorama
    */
   int cpusY()
   {
-    return _cpusY+topFrame();
+    return _cpusY + topFrame();
+  }
+
+  /**
+   * Bottom y coordinate of the header of CPUs (line saying "CPUs")
+   */
+  int cpusYHeaderBottom()
+  {
+    return _cpusYHeaderBottom + topFrame();
   }
 
   /**
    * Bottom y coordinate of the CPUs area
    */
-  int cpusYbottom()
+  int cpusYBottom()
   {
-    return _cpusYbottom+topFrame();
+    return _cpusYBottom + topFrame();
   }
 
   /**
@@ -598,7 +607,7 @@ class SchedulingPanorama extends Panorama
    */
   int cpuY(int i)
   {
-    return _cpuY[i]+topFrame();
+    return _cpuY[i] + topFrame();
   }
 
 
@@ -611,7 +620,7 @@ class SchedulingPanorama extends Panorama
    */
   int threadY(int t)
   {
-    return threadY0(t)+topFrame();
+    return threadY0(t) + topFrame();
   }
   int ti(int t)
   {
@@ -625,32 +634,32 @@ class SchedulingPanorama extends Panorama
   int threadYUserTop(int t)
   {
     var ti = ti(t);
-    return _threadYUserTop[ti]+topFrame();
+    return _threadYUserTop[ti] + topFrame();
   }
   int threadYUserBot(int t)
   {
     var ti = ti(t);
-    return _threadYUserBot[ti]+topFrame();
+    return _threadYUserBot[ti] + topFrame();
   }
   int threadYProcTop(int t)
   {
     var ti = ti(t);
-    return _threadYProcTop[ti]+topFrame();
+    return _threadYProcTop[ti] + topFrame();
   }
   int threadYProcBot(int t)
   {
     var ti = ti(t);
-    return _threadYProcBot[ti]+topFrame();
+    return _threadYProcBot[ti] + topFrame();
   }
   int threadYTop(int t)
   {
     var ti = ti(t);
-    return _threadYTop[ti]+topFrame();
+    return _threadYTop[ti] + topFrame();
   }
   int threadYBottom(int t)
   {
     var ti = ti(t);
-    return _threadYBottom[ti]+topFrame();
+    return _threadYBottom[ti] + topFrame();
   }
   int threadY0(int t)
   {
@@ -677,14 +686,19 @@ class SchedulingPanorama extends Panorama
             _threadShown    = new boolean[numThreads()];
             double y = ts;
             _cpusY = (int) y;
-            y = y + zoomedUserNameHeight() + _zoom.zoom(CPU_SPACING+4);
-            _cpuY = new int[_data._cpus.size()];
+            y = y + zoomedUserNameHeight() + _zoom.zoom(4);
+            _cpusYHeaderBottom = (int) y;
+            y = y + _zoom.zoom(CPU_SPACING);
+            _cpuY = new int[numCpus()];
             for (var i = 0; i<numCpus(); i++)
               {
                 _cpuY[i] = (int) y;
-                y = y + _zoom.zoom(CPU_SPACING);
+                if (_cpusEnabled)
+                  {
+                    y = y + _zoom.zoom(CPU_SPACING);
+                  }
               }
-            _cpusYbottom = (int) y;
+            _cpusYBottom = (int) y;
             y = y + zoom(4);
             for (var i = 0; i<numThreads(); i++)
               {
@@ -996,19 +1010,19 @@ class SchedulingPanorama extends Panorama
                 cpusY()                               <  r.y+r.height &&
                 cpuY(numCpus()-1) + zoom(CPU_SPACING) >= r.y             )
               {
-                g.setColor(PROCESS_COLS3[2][0]);
-                g.fillRect(0, cpusY(), getWidth(), cpusYbottom()-_cpusY);
                 g.setColor(PROCESS_COLS3[2][0].darker());
-                g.fillRect(0, cpusY(), getWidth(), cpuY(0)-_zoom.zoom(CPU_SPACING)-cpusY());
+                g.fillRect(0, cpusY(), getWidth(), cpusYHeaderBottom()-cpusY());
+                g.setColor(PROCESS_COLS3[2][0]);
+                g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom()-_cpusY);
 
-                for(var i = 0; i<numCpus(); i++)
+                for(var i = 0; _cpusEnabled && i<numCpus(); i++)
                   {
                     // NYI: CLEANUP: the basic logic for drawing and blurr
                     // handling used here is repeated below for threads. Would
                     // be nice to put this into a method or class and avoid
                     // duplication!
 
-                    var cpu = _data._cpus.get(i);
+                    var cpu = _data.cpu(i);
                     var y = cpuY(i);
 
                     int blurredUpToX = -1;
@@ -1020,7 +1034,7 @@ class SchedulingPanorama extends Panorama
                         int nextWidth;
                         if (cpu.stopsRunning(a))
                           {
-                            nextCol = Color.blue;
+                            nextCol = Color.gray;
                             nextWidth = 1;
                           }
                         else if (cpu.startsRunning(a) || cpu.continuesRunning(a))
@@ -1053,7 +1067,7 @@ class SchedulingPanorama extends Panorama
                               }
                             else if (cpu.startsRunning(a))
                               {
-                                g.setColor(Color.blue);
+                                g.setColor(Color.gray);
                                 _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
                               }
                             else
@@ -1085,7 +1099,7 @@ class SchedulingPanorama extends Panorama
                           {
                             if (cpu.stopsRunning(a0))
                               {
-                                g.setColor(Color.blue);
+                                g.setColor(Color.gray);
                                 _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
                               }
                             else if (cpu.startsRunning(a0))
@@ -1097,7 +1111,7 @@ class SchedulingPanorama extends Panorama
                       }
                   }
                 g.setColor(Color.white);
-                g.fillRect(0, cpusYbottom(), getWidth(), threadYUserTop(0)-cpusYbottom());
+                g.fillRect(0, cpusYBottom(), getWidth(), threadYUserTop(0)-cpusYBottom());
 
               }
 
@@ -1162,7 +1176,7 @@ class SchedulingPanorama extends Panorama
                     int nextWidth;
                     if (t.stopsRunning(a))
                       {
-                        nextCol = Color.blue;
+                        nextCol = Color.gray;
                         nextWidth = 1;
                       }
                     else if (t.startsRunning(a) || t.continuesRunning(a))
@@ -1196,7 +1210,7 @@ class SchedulingPanorama extends Panorama
                           }
                         else if (t.startsRunning(a))
                           {
-                            g.setColor(Color.blue);
+                            g.setColor(Color.gray);
                             _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
                           }
                         else
@@ -1241,7 +1255,7 @@ class SchedulingPanorama extends Panorama
                       {
                         if (t.stopsRunning(a0))
                           {
-                            g.setColor(Color.blue);
+                            g.setColor(Color.gray);
                             _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
                           }
                         else if (t.startsRunning(a0))
@@ -1644,24 +1658,37 @@ class SchedulingPanorama extends Panorama
             var y = e.getY();
             var c = e.getComponent();
             if (x >= 0 && x < c.getWidth() &&
-                y >= 0 && y < c.getHeight()   )
+                y >= 0 && y < c.getHeight() &&
+                !inDragArea(x, y))
               {
-                var ti = threadAt(y);
-                var u = thread(ti).user();
-                if (ti >= 0 &&
-                    ti <= numThreads()      &&
-                    isFirstThreadOfUser(ti) &&
-                    y >= threadYUserTop(ti) &&
-                    y < threadYUserBot(ti)  &&
-                    !inDragArea(x, y))
+                if (y >= cpusY() && y < cpusYHeaderBottom())
                   {
                     synchronized (SchedulingPanorama.this)
                       {
-                        _usersEnabled[u._num] = !_usersEnabled[u._num];
+                        _cpusEnabled = !_cpusEnabled;
                         _threads = null;
                       }
                     c.repaint();
                     SchedulingPanorama.this.repaint();
+                  }
+                else
+                  {
+                    var ti = threadAt(y);
+                    var u = thread(ti).user();
+                    if (ti >= 0 &&
+                        ti <= numThreads()      &&
+                        isFirstThreadOfUser(ti) &&
+                        y >= threadYUserTop(ti) &&
+                        y < threadYUserBot(ti)     )
+                      {
+                        synchronized (SchedulingPanorama.this)
+                          {
+                            _usersEnabled[u._num] = !_usersEnabled[u._num];
+                            _threads = null;
+                          }
+                        c.repaint();
+                        SchedulingPanorama.this.repaint();
+                      }
                   }
               }
           }
@@ -1735,7 +1762,8 @@ class SchedulingPanorama extends Panorama
     protected void paintComponent(Graphics g)
     {
       var gapEighth   = gapEighth();
-      var cpuLineX    = (int) (16 * gapEighth);
+      var cpuLineX    = (int) ( 8 * gapEighth);
+      var cpuTextX    = (int) (16 * gapEighth);
       var userLineX   = (int) ( 8 * gapEighth);
       var procLineX   = (int) (16 * gapEighth);
       var threadNameX = (int) (24 * gapEighth);
@@ -1746,18 +1774,28 @@ class SchedulingPanorama extends Panorama
           cpusY()                               <  clipr.y+clipr.height &&
           cpuY(numCpus()-1) + zoom(CPU_SPACING) >= clipr.y                 )
         {
-          g.setColor(PROCESS_COLS3[2][0]);
-          g.fillRect(0, cpusY(), getWidth(), cpusYbottom()-_cpusY);
           g.setColor(PROCESS_COLS3[2][0].darker());
-          g.fillRect(0, cpusY(), getWidth(), cpuY(0)-_zoom.zoom(CPU_SPACING)-cpusY());
-          for(var i = 0; i<numCpus(); i++)
+          g.fillRect(0, cpusY(), getWidth(), cpusYHeaderBottom() - cpusY() );
+          g.setColor(PROCESS_COLS3[2][0]);
+          g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom() - cpusYHeaderBottom());
+          _zoom.drawFold(g, _cpusEnabled, Color.gray, Color.white, userLineX, (int) (cpusYHeaderBottom()-6*gapEighth), (int) (8*gapEighth));
+          g.setColor(Color.white);
+          _zoom.drawString(g, "CPUs", cpuTextX, (int) (cpuY(0) - _zoom.zoom(CPU_SPACING) - zoomedUserNameHeight()/6));
+          if (_cpusEnabled)
             {
-              g.setColor(Color.gray);
-              _zoom.drawHLine(g,1,0, cpuY(i), getWidth());
+              for(var i = 0; i<numCpus(); i++)
+                {
+                  g.setColor(Color.gray);
+                  _zoom.drawHLine(g, 1, cpuLineX, cpuY(i), getWidth());
+                  _zoom.drawString(g, CPU_SPACING-2, Integer.toString(_data.cpu(i)._id), cpuTextX, cpuY(i)-_zoom.zoom(1));
+                }
+              if (numCpus() > 0)
+                {
+                  _zoom.drawVLine(g, 1, cpuLineX, cpusYHeaderBottom(), cpuY(numCpus()-1));
+                }
             }
           g.setColor(Color.white);
-          _zoom.drawString(g, "CPUs", cpuLineX, (int) (cpuY(0) - _zoom.zoom(CPU_SPACING) - zoomedUserNameHeight()/6));
-          g.fillRect(0, cpusYbottom(), getWidth(), threadYUserTop(0)-cpusYbottom());
+          g.fillRect(0, cpusYBottom(), getWidth(), threadYUserTop(0)-cpusYBottom());
         }
       var i = Math.max(0, threadAt(clipr.y)-1);
       for (; threadY(i-1) <= clipr.y+clipr.height && i < numThreads(); i++)
@@ -1809,29 +1847,8 @@ class SchedulingPanorama extends Panorama
 
           if (u != null)
             {
-              g.setColor(Color.white);
-              var cy = yuserbot-6*gapEighth;
-              _zoom.drawFilledRect(g,
-                                   Color.gray,
-                                   Color.white,
-                                   1,
-                                   (int) (userLineX-4*gapEighth),
-                                   (int) (cy-4*gapEighth),
-                                   (int) (8*gapEighth),
-                                   (int) (8*gapEighth));
-              g.setColor(Color.gray);
-              if (_usersEnabled[u._num])
-                { // 'v'
-                  _zoom.drawLine(g, 1, (int) (userLineX-2*gapEighth), (int) (cy-gapEighth), userLineX, (int) (cy+gapEighth));
-                  _zoom.drawLine(g, 1, (int) (userLineX+2*gapEighth), (int) (cy-gapEighth), userLineX, (int) (cy+gapEighth));
-                }
-              else
-                { // '>'
-                  _zoom.drawLine(g, 1, (int) (userLineX-gapEighth), (int) (cy-2*gapEighth), (int) (userLineX+gapEighth), (int) (cy));
-                  _zoom.drawLine(g, 1, (int) (userLineX-gapEighth), (int) (cy+2*gapEighth), (int) (userLineX+gapEighth), (int) (cy));
-                }
+              _zoom.drawFold(g, _usersEnabled[u._num], Color.gray, Color.white, userLineX, (int) (yuserbot-6*gapEighth), (int) (8*gapEighth));
             }
-
 
           verticalForProcess(g, i, procLineX);
           verticalForUser   (g, i, userLineX, (int) (-2*gapEighth));

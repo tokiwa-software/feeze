@@ -339,4 +339,19 @@ class Data extends ANY implements Offsets
   }
 
 
+  int numCpus()
+  {
+    return _cpus.size();
+  }
+
+  Cpu cpu(int i)
+  {
+    if (PRECONDITIONS) require
+      (i < numCpus());
+
+    return _cpus.get(i);
+  }
+
+
+
 }

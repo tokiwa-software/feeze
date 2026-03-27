@@ -261,6 +261,55 @@ class Zoom
     drawRect(g, width, x, y, w, h);
   }
 
+
+  /**
+   * Draw a fold / unfold button [>] (folded) or [v] (unfolded).
+   *
+   * @param g graphics to draw to
+   *
+   * @param unfolded true to draw unfolded state, false for folded state
+   *
+   * @param lineCol color for lines
+   *
+   * @param fillCol color for background
+   *
+   * @param cx x coordinate of center of button
+   *
+   * @param cy y coordinate of center of button
+   *
+   * @param sz size of button
+   */
+  void drawFold(Graphics g,
+                boolean unfolded,
+                Color lineCol,
+                Color fillCol,
+                int cx,
+                int cy,
+                int sz)
+  {
+    g.setColor(fillCol);
+    drawFilledRect(g,
+                   lineCol,
+                   fillCol,
+                   1,
+                   cx-sz/2,
+                   cy-sz/2,
+                   sz,
+                   sz);
+    g.setColor(lineCol);
+    if (unfolded)
+      { // 'v'
+        drawLine(g, 1, cx-sz/4, cy-sz/8, cx, cy+sz/8);
+        drawLine(g, 1, cx+sz/4, cy-sz/8, cx, cy+sz/8);
+      }
+    else
+      { // '>'
+        drawLine(g, 1, cx-sz/8, cy-sz/4, cx+sz/8, cy);
+        drawLine(g, 1, cx-sz/8, cy+sz/4, cx+sz/8, cy);
+      }
+  }
+
+
   static final int STANDARD_FONT_SIZE = 12;
 
 
@@ -271,7 +320,18 @@ class Zoom
    */
   Font standardFont()
   {
-    return font(STANDARD_FONT_SIZE);
+    return fontRaw(STANDARD_FONT_SIZE);
+  }
+
+
+  /**
+   * font of given (unzoomed) size.
+   *
+   * @return font of given size.
+   */
+  Font font(int size)
+  {
+    return fontRaw(zoom(size));
   }
 
 
@@ -282,21 +342,68 @@ class Zoom
    *
    * @return the corresponding font.
    */
-  Font font(int s)
+  Font fontRaw(int s)
   {
     int N = 100;
     if (_fonts == null)
       {
         _fonts = new Font[N];
       }
-    s = Math.max(N-1, s);
+    s = Math.min(N-1, s);
     Font f = _fonts[s];
     if (f == null)
       {
-        f = _baseFont.deriveFont(s);
+        f = _baseFont.deriveFont((float) s);
         _fonts[s] = f;
       }
     return f;
+  }
+
+
+  /**
+   * drawString draws a given string with a given font.
+   *
+   * @param g graphics environment
+   *
+   * @param f the font to use
+   *
+   * @param str the string
+   *
+   * @param x the zoomed (!) x coordinate
+   *
+   * @param < the zoomed (!) y coordinate
+   */
+  void drawString(Graphics g,
+                  Font f,
+                  String str,
+                  int x,
+                  int y)
+  {
+    g.setFont(f);
+    g.drawString(str,x,y);
+  }
+
+
+  /**
+   * drawString draws a given string with a given font size.
+   *
+   * @param g graphics environment
+   *
+   * @param fontSize the (unzooomed) font size
+   *
+   * @param str the string
+   *
+   * @param x the zoomed (!) x coordinate
+   *
+   * @param < the zoomed (!) y coordinate
+   */
+  void drawString(Graphics g,
+                  int fontSize,
+                  String str,
+                  int x,
+                  int y)
+  {
+    drawString(g, font(fontSize), str, x, y);
   }
 
 
@@ -316,8 +423,7 @@ class Zoom
                   int x,
                   int y)
   {
-    g.setFont(standardFont());
-    g.drawString(str,x,y);
+    drawString(g, standardFont(), str, x, y);
   }
 
 
