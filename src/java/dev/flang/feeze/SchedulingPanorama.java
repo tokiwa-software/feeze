@@ -688,15 +688,13 @@ class SchedulingPanorama extends Panorama
             _cpusY = (int) y;
             y = y + zoomedUserNameHeight() + _zoom.zoom(4);
             _cpusYHeaderBottom = (int) y;
-            y = y + _zoom.zoom(CPU_SPACING);
+            var cpuspacing = (_cpusEnabled ? _zoom.zoom(CPU_SPACING) : 0);
+            y = y + cpuspacing;
             _cpuY = new int[numCpus()];
             for (var i = 0; i<numCpus(); i++)
               {
                 _cpuY[i] = (int) y;
-                if (_cpusEnabled)
-                  {
-                    y = y + _zoom.zoom(CPU_SPACING);
-                  }
+                y = y + cpuspacing;
               }
             _cpusYBottom = (int) y;
             y = y + zoom(4);
@@ -1012,100 +1010,103 @@ class SchedulingPanorama extends Panorama
               {
                 g.setColor(PROCESS_COLS3[2][0].darker());
                 g.fillRect(0, cpusY(), getWidth(), cpusYHeaderBottom()-cpusY());
-                g.setColor(PROCESS_COLS3[2][0]);
-                g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom()-_cpusY);
-
-                for(var i = 0; _cpusEnabled && i<numCpus(); i++)
+                if (_cpusEnabled)
                   {
-                    // NYI: CLEANUP: the basic logic for drawing and blurr
-                    // handling used here is repeated below for threads. Would
-                    // be nice to put this into a method or class and avoid
-                    // duplication!
+                    g.setColor(PROCESS_COLS3[2][0]);
+                    g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom()-_cpusY);
 
-                    var cpu = _data.cpu(i);
-                    var y = cpuY(i);
-
-                    int blurredUpToX = -1;
-                    int from_a = actionAt(cpu, r.x);
-                    int to_a = actionAt(cpu, r.x+r.width)+1;
-                    for (var a = from_a; a<to_a; a++)
+                    for(var i = 0; i<numCpus(); i++)
                       {
-                        Color nextCol;
-                        int nextWidth;
-                        if (cpu.stopsRunning(a))
-                          {
-                            nextCol = Color.gray;
-                            nextWidth = 1;
-                          }
-                        else if (cpu.startsRunning(a) || cpu.continuesRunning(a))
-                          {
-                            nextCol = DARK_GREEN;
-                            nextWidth = 6;
-                          }
-                        else
-                          {
-                            nextCol = Color.magenta;
-                            nextWidth = 8;
-                          }
-                        var nl = _data.nanosAtSwitch(cpu.at(a))-_data.nanosMin();
-                        var nr = (a+1 >= cpu.numActions() ? _data.nanosMax()
-                                                          : _data.nanosAtSwitch(cpu.at(a+1))) -_data.nanosMin();
+                        // NYI: CLEANUP: the basic logic for drawing and blurr
+                        // handling used here is repeated below for threads. Would
+                        // be nice to put this into a method or class and avoid
+                        // duplication!
 
-                        if (ANY.CHECKS) ANY.check
-                          (nl <= nr);   // event times should be monotonic increasing
+                        var cpu = _data.cpu(i);
+                        var y = cpuY(i);
 
-                        var xl = nanos_to_posx(nl);
-                        var xr = nanos_to_posx(nr);
-                        var nnr = (a+2 >= cpu.numActions() ? _data.nanosMax()
-                                                           : _data.nanosAtSwitch(cpu.at(a+2))) -_data.nanosMin();
-                        if (a == 0)
+                        int blurredUpToX = -1;
+                        int from_a = actionAt(cpu, r.x);
+                        int to_a = actionAt(cpu, r.x+r.width)+1;
+                        for (var a = from_a; a<to_a; a++)
                           {
+                            Color nextCol;
+                            int nextWidth;
                             if (cpu.stopsRunning(a))
                               {
-                                g.setColor(DARK_GREEN);
-                                _zoom.drawHLine(g,6,nanos_to_posx(0),y,xl);
+                                nextCol = Color.gray;
+                                nextWidth = 1;
                               }
-                            else if (cpu.startsRunning(a))
+                            else if (cpu.startsRunning(a) || cpu.continuesRunning(a))
                               {
-                                g.setColor(Color.gray);
-                                _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
+                                nextCol = DARK_GREEN;
+                                nextWidth = 6;
                               }
                             else
                               {
                                 nextCol = Color.magenta;
                                 nextWidth = 8;
                               }
-                          }
+                            var nl = _data.nanosAtSwitch(cpu.at(a))-_data.nanosMin();
+                            var nr = (a+1 >= cpu.numActions() ? _data.nanosMax()
+                                                              : _data.nanosAtSwitch(cpu.at(a+1))) -_data.nanosMin();
 
-                        if (posx_to_nanos(xl+2) < nnr)
-                          {
-                            g.setColor(nextCol);
+                            if (ANY.CHECKS) ANY.check
+                              (nl <= nr);   // event times should be monotonic increasing
 
-                            _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
-                          }
-                        else if (blurredUpToX < xr)
-                          {
-                            g.setColor(VERY_DARK_GREEN);
-                            _zoom.drawHLine(g,6,xl,y,xr-1);
-                            blurredUpToX = xr;
-                          }
-
-                        var a0 = a;
-                        if (xr > r.x+r.width)
-                          {
-                            a = cpu.numActions();
-                          }
-                        if (a+1 >= cpu.numActions())
-                          {
-                            if (cpu.stopsRunning(a0))
+                            var xl = nanos_to_posx(nl);
+                            var xr = nanos_to_posx(nr);
+                            var nnr = (a+2 >= cpu.numActions() ? _data.nanosMax()
+                                                               : _data.nanosAtSwitch(cpu.at(a+2))) -_data.nanosMin();
+                            if (a == 0)
                               {
-                                g.setColor(Color.gray);
-                                _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                                if (cpu.stopsRunning(a))
+                                  {
+                                    g.setColor(DARK_GREEN);
+                                    _zoom.drawHLine(g,6,nanos_to_posx(0),y,xl);
+                                  }
+                                else if (cpu.startsRunning(a))
+                                  {
+                                    g.setColor(Color.gray);
+                                    _zoom.drawHLine(g,1,nanos_to_posx(0),y,xl);
+                                  }
+                                else
+                                  {
+                                    nextCol = Color.magenta;
+                                    nextWidth = 8;
+                                  }
                               }
-                            else if (cpu.startsRunning(a0))
+
+                            if (posx_to_nanos(xl+2) < nnr)
                               {
-                                g.setColor(DARK_GREEN);
-                                _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                                g.setColor(nextCol);
+
+                                _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
+                              }
+                            else if (blurredUpToX < xr)
+                              {
+                                g.setColor(VERY_DARK_GREEN);
+                                _zoom.drawHLine(g,6,xl,y,xr-1);
+                                blurredUpToX = xr;
+                              }
+
+                            var a0 = a;
+                            if (xr > r.x+r.width)
+                              {
+                                a = cpu.numActions();
+                              }
+                            if (a+1 >= cpu.numActions())
+                              {
+                                if (cpu.stopsRunning(a0))
+                                  {
+                                    g.setColor(Color.gray);
+                                    _zoom.drawHLine(g,1,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                                  }
+                                else if (cpu.startsRunning(a0))
+                                  {
+                                    g.setColor(DARK_GREEN);
+                                    _zoom.drawHLine(g,15,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
+                                  }
                               }
                           }
                       }
@@ -1776,13 +1777,13 @@ class SchedulingPanorama extends Panorama
         {
           g.setColor(PROCESS_COLS3[2][0].darker());
           g.fillRect(0, cpusY(), getWidth(), cpusYHeaderBottom() - cpusY() );
-          g.setColor(PROCESS_COLS3[2][0]);
-          g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom() - cpusYHeaderBottom());
           _zoom.drawFold(g, _cpusEnabled, Color.gray, Color.white, userLineX, (int) (cpusYHeaderBottom()-6*gapEighth), (int) (8*gapEighth));
           g.setColor(Color.white);
           _zoom.drawString(g, "CPUs", cpuTextX, (int) (cpuY(0) - _zoom.zoom(CPU_SPACING) - zoomedUserNameHeight()/6));
           if (_cpusEnabled)
             {
+              g.setColor(PROCESS_COLS3[2][0]);
+              g.fillRect(0, cpusYHeaderBottom(), getWidth(), cpusYBottom() - cpusYHeaderBottom());
               for(var i = 0; i<numCpus(); i++)
                 {
                   g.setColor(Color.gray);
