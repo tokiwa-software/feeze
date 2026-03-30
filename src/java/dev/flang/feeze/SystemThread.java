@@ -76,7 +76,11 @@ class SystemThread extends FeezeThread
   void addAction(int at)
   {
     super.addAction(at);
-    user().cumulative().addAction(at);
+    var u = user();
+    if (u != null) // NYI: Check why it sometimes happened that this is null
+      {
+        u.cumulative().addAction(at);
+      }
     _swapper = _swapper ||
       _p._pid == -1 && nameFrom(at).startsWith("swapper/");
   }

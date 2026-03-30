@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package dev.flang.feeze;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 
@@ -84,6 +85,45 @@ public class ControlFrame extends JFrame
   String _dataName = null;
 
 
+
+  long shMemSize()
+  {
+    var result = (long) -1;
+    var s = _sharedMemSize.getText();
+    var f = (long) 1;
+    if      (s.endsWith("GB")) { f = 1024*1024*1024; s = s.substring(0,s.length()-2); }
+    else if (s.endsWith("MB")) { f =      1024*1024; s = s.substring(0,s.length()-2); }
+    else if (s.endsWith("KB")) { f =           1024; s = s.substring(0,s.length()-2); }
+    try
+      {
+        var l = Long.parseLong(s);
+        if (Long.MAX_VALUE / f <= l)
+          { // overflow!
+            System.err.println("overflow: "+f+"*"+l);
+          }
+        else
+          {
+            var res = f * l;
+            if ((res & 4095) == 0 &&
+                res >= 4096 &&
+                res < ((long) 1 << 31))
+              {
+                result = res;
+              }
+            else
+              {
+                System.err.println("not ok: "+res);
+              }
+          }
+      }
+    catch (NumberFormatException e)
+      {
+        // ignore, -1 will be returned.
+      }
+    return result;
+  }
+
+
   /**
    * Helper to create a JButton with given text, KeyEvent and tool tip.
    */
@@ -127,6 +167,7 @@ public class ControlFrame extends JFrame
         _recorderOutput.setText("");
         Threads.inDaemon(()->
           {
+            long shm = -2;
             while (true)
               {
                 Threads.sleep(1000);  // NYI: CLEANUP: DO this whenever the input text changes or when the file changes!
@@ -179,7 +220,18 @@ public class ControlFrame extends JFrame
                     if (used != used0)
                       {
                         var sz = d.byteSize();
-                        str = ""+used/1024/1024+"MB/"+sz/1024/1024+"MB "+(used/(sz/100))+"%";
+                        if (sz > 9*1024*1024)
+                          {
+                            str = ""+used/1024/1024+"MB/"+sz/1024/1024+"MB "+(used/(sz/100))+"%";
+                          }
+                        else if (sz > 9*1024)
+                          {
+                            str = ""+used/1024+"KB/"+sz/1024+"KB "+(used/(sz/100))+"%";
+                          }
+                        else
+                          {
+                            str = ""+used+"/"+sz+" "+(used/(sz/100))+"%";
+                          }
                       }
                   }
                 else
@@ -191,6 +243,12 @@ public class ControlFrame extends JFrame
                   {
                     _usedMemBar.setValue(used);
                     _usedMemBar.setString(str);
+                  }
+                var new_shm = shMemSize();
+                if (shm != new_shm)
+                  {
+                    shm = new_shm;
+                    _sharedMemSize.setBackground(shm == -1 ? Color.PINK : Color.white);
                   }
               }
           });

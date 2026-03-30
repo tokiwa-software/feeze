@@ -323,7 +323,8 @@ class ControlListener
           var txt = _control._record.getText();
           var cmd = switch (txt)
             {
-            case "record" -> "START '"+_control._sharedMemName.getText()+"'\n";
+            case "record" -> "SHMEM_SIZE '"+_control.shMemSize()+"'\n" +
+                             "START '"+_control._sharedMemName.getText()+"'\n";
             case "stop"   -> "STOP\n";
             default       -> throw new Error("*** unexpected text in recoder button: '"+txt+"'");
             };

@@ -176,6 +176,15 @@ uid_t user_uids[MAX_NUM_USERS];
 int num_users = 0;
 
 
+struct record_config
+{
+  size_t shmem_size;
+  const char* shmem_file_name;
+};
+
+struct record_config *config = NULL;
+
+
 /**
  * Callback installed using libbpf_set_print() used for debug output sent to
  * bpf_printk().
@@ -581,7 +590,9 @@ void *t12start(void *arg)
  */
 void *record(void *arg)
 {
-  char *shMemFileName = arg;
+  config = arg;
+  const char *shmem_file_name = config->shmem_file_name;
+  fprintf(stderr, "--%s--\n",shmem_file_name);
   int entry_start_offset = (char*) &(shmem[1]) -
                            (char*) &(shmem[0]);
   int entry_size = (char *) &(((entry*) &(shmem[1]))[1]) -
@@ -602,7 +613,7 @@ void *record(void *arg)
   struct ring_buffer *rb = NULL;
   int err;
   //  int shared = shm_open(SHARED_MEM_NAME, O_RDWR | O_CREAT | O_EXCL, 0644);
-  int shared = open(shMemFileName,
+  int shared = open(shmem_file_name,
                     0
                     | O_RDWR
                     | O_CREAT
@@ -614,17 +625,17 @@ void *record(void *arg)
       err = 1;
       goto cleanup;
     }
-  err = ftruncate(shared, SHARED_MEM_SIZE);
+  err = ftruncate(shared, config->shmem_size);
   if (err)
     {
-      fprintf(stderr,"ftruncate(%d,%ld) failed: %d %s\n",shared, SHARED_MEM_SIZE, errno, strerror(errno));
+      fprintf(stderr,"ftruncate(%d,%ld) failed: %d %s\n",shared, config->shmem_size, errno, strerror(errno));
       goto cleanup;
     }
 
-  shmem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED_VALIDATE, shared, 0);
+  shmem = mmap(NULL, config->shmem_size, PROT_READ|PROT_WRITE, MAP_SHARED_VALIDATE, shared, 0);
   if (shmem == MAP_FAILED)
     {
-      fprintf(stderr,"mmap(NULL, %ld, %x, %x, %d, 0) failed: %d %s\n",SHARED_MEM_SIZE,
+      fprintf(stderr,"mmap(NULL, %ld, %x, %x, %d, 0) failed: %d %s\n",config->shmem_size,
               PROT_READ|PROT_WRITE, MAP_SHARED_VALIDATE, shared,
               errno, strerror(errno));
       err = 1;
@@ -638,7 +649,7 @@ void *record(void *arg)
   shmem->blublu = true;
   // atomic_thread_fence(std::memory_order_release);
   __sync_synchronize();
-  shmem->size = SHARED_MEM_SIZE;
+  shmem->size = config->shmem_size;
 
   /* Clean handling of Ctrl-C */
   signal(SIGINT, sig_handler);
@@ -744,10 +755,10 @@ void *record(void *arg)
     }
   if (shmem != MAP_FAILED && !false)
     {
-      int res = munmap(shmem, SHARED_MEM_SIZE);
+      int res = munmap(shmem, config->shmem_size);
       if (res < 0)
         {
-          fprintf(stderr,"munmap(%p,%ld) failed: %d %s\n",shmem, SHARED_MEM_SIZE, errno, strerror(errno));
+          fprintf(stderr,"munmap(%p,%ld) failed: %d %s\n",shmem, config->shmem_size, errno, strerror(errno));
           err = 1;
         }
     }
@@ -761,7 +772,12 @@ void *record(void *arg)
           err = 1;
          }
     }
-  fprintf(stdout, "DONE RECORDING TO '%s'\n", shMemFileName); fflush(stdout);
+  fprintf(stdout, "DONE RECORDING TO '%s'\n", shmem_file_name); fflush(stdout);
+
+  if (config != NULL)
+    {
+      free(config);
+    }
   // NYI: store err somewhere?
   return NULL;
 }
@@ -802,6 +818,7 @@ int main(int argc, char**args)
   char line[N];
   setbuf(stdout, NULL);
   printf("feeze recorder started, waiting for commands...\n"); fflush(stdout);
+  size_t shmem_size = SHARED_MEM_SIZE;
   while (!exiting)
     {
       printf("Waiting for commands...\n"); fflush(stdout);
@@ -817,13 +834,46 @@ int main(int argc, char**args)
           pthread_t rt = {};
           pthread_create(&rt, NULL, record, name);  pthread_setname_np(rt,"feeze_record");
         }
+      else if (str_startsWith(s, "SHMEM_SIZE '") &&
+               str_endsWith  (s, "'\n"    )    )
+        {
+          strncpy(name, s+12, strlen(s)-12-2);
+          size_t l = atol(name);
+          if ((l & 4095) != 0)  // page aligned
+            {
+              fprintf(stderr, "*** not 4K page ligned value %zu for SHMEM_SIZE set bs %s\n", l, s);
+            }
+          else if (l < 4096) // not too small
+            {
+              fprintf(stderr, "*** too small (<4K) value %zu for SHMEM_SIZE set bs %s\n", l, s);
+            }
+          else if (l >= ((size_t) 1) << 31)
+            {
+              fprintf(stderr, "*** ridiculously large value %zu for SHMEM_SIZE set bs %s\n", l, s);
+            }
+          else
+            {
+              shmem_size = l;
+            }
+        }
       else if (str_startsWith(s, "START '") &&
                str_endsWith  (s, "'\n"    )    )
         {
           strncpy(name, s+7, strlen(s)-7-2);
           fprintf(stdout, "START RECORDING TO '%s'\n", name); fflush(stdout);
           pthread_t rt = {};
-          pthread_create(&rt, NULL, record, name);  pthread_setname_np(rt,"feeze_record");
+          struct record_config * conf = malloc(sizeof(struct record_config));
+          if (conf == NULL)
+            {
+              fprintf(stderr, "*** out of memory\n");
+            }
+          else
+            {
+              conf->shmem_file_name = name;
+              conf->shmem_size = shmem_size;
+              pthread_create(&rt, NULL, record, conf);
+              pthread_setname_np(rt,"feeze_record");
+            }
         }
       else if (strcmp(s, "STOP\n") == 0)
         {
