@@ -37,12 +37,22 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
+import java.nio.ByteOrder;
+
+import java.nio.file.StandardOpenOption;
+
+import java.nio.channels.FileChannel;
+
+import java.io.File;
+import java.io.IOException;
+
 import javax.swing.GroupLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
@@ -62,9 +72,16 @@ public class ControlFrame extends JFrame
 {
 
 
+  static int INITIAL_SHARED_MEM_SIZE = 64*1024*1024;
+
   JTextField _sharedMemName;
+  JTextField _sharedMemSize;
+  JProgressBar _usedMemBar;
   JButton _startRecorder, _record, _showData;
   JTextArea _recorderOutput; // Using JTextPane could allow text attributes like color (eg., red for stderr)
+
+  Data _data = null;
+  String _dataName = null;
 
 
   /**
@@ -87,6 +104,16 @@ public class ControlFrame extends JFrame
         var shMemNameLabel = new JLabel("Shared Memory File:");
         _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
         _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+
+        var shMemSizeLabel = new JLabel("Shared Memory Size (KB/MB):");
+        _sharedMemSize = new JTextField(""+(INITIAL_SHARED_MEM_SIZE/1024/1024)+"MB");
+        _sharedMemSize.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+
+        var usedMemLabel = new JLabel("Used Memory:");
+        _usedMemBar   = new JProgressBar(0, INITIAL_SHARED_MEM_SIZE);
+        _usedMemBar.setValue(0);
+        _usedMemBar.setStringPainted(true);
+
         _startRecorder = button("start local recorder", KeyEvent.VK_S, "start local recording service, requires superuser status");
         _record = button("record", KeyEvent.VK_R, "start local recording service, requires superuser status");
         _record.setEnabled(false);
@@ -108,6 +135,63 @@ public class ControlFrame extends JFrame
                   {
                     _showData.setEnabled(ex);
                   }
+                if (ex)
+                  {
+                    var fb = _sharedMemName.getText();
+                    if (_data == null || !fb.equals(_dataName))
+                      {
+                        if (_data != null)
+                          {
+                            _data.close();
+                            _data = null;
+                          }
+                        var f = new File(_sharedMemName.getText());
+                        try (var channel = FileChannel.open(f.toPath(), StandardOpenOption.READ))
+                          {
+                            // NYI: CLEANUP: Use java.lang.foreign.MemorySegment instead!
+                            var b = channel.map(FileChannel.MapMode.READ_ONLY, 0, 4096);
+                            b.order(ByteOrder.LITTLE_ENDIAN);
+
+                            _data = new Data(b);
+                          }
+                        catch (IOException ioe)
+                          {
+                            // NYI: show ioe in some status line
+                          }
+                      }
+                  }
+                else
+                  {
+                    if (_data != null)
+                      {
+                        _data.close();
+                        _data = null;
+                          }
+                  }
+                var d = _data;
+                var used0 = _usedMemBar.getValue();
+                var str0  = _usedMemBar.getString();
+                var used  = used0;
+                var str   = str0;
+                if (d != null)
+                  {
+                    used = (int) d.usedBytes();
+                    if (used != used0)
+                      {
+                        var sz = d.byteSize();
+                        str = ""+used/1024/1024+"MB/"+sz/1024/1024+"MB "+(used/(sz/100))+"%";
+                      }
+                  }
+                else
+                  {
+                    used = 0;
+                    str = "--";
+                  }
+                if (used != used0 || !str.equals(str0))
+                  {
+                    _usedMemBar.setValue(used);
+                    _usedMemBar.setString(str);
+                  }
               }
           });
         var rolabel = new JLabel("recorder output:");
@@ -123,10 +207,16 @@ public class ControlFrame extends JFrame
            .addGroup(layout.createSequentialGroup()
                      .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
                                .addComponent(shMemNameLabel)
-                               .addComponent(_sharedMemName))
-                     .addComponent(_startRecorder)
-                     .addComponent(_record)
-                     .addComponent(_showData))
+                               .addComponent(shMemSizeLabel)
+                               .addComponent(usedMemLabel  ))
+                     .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                               .addComponent(_sharedMemName)
+                               .addComponent(_sharedMemSize)
+                               .addComponent(_usedMemBar   ))
+                     .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING, false)
+                               .addComponent(_startRecorder, GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                               .addComponent(_record,        GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                               .addComponent(_showData,      GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
            .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
                      .addComponent(rolabel))
            .addComponent(ro));
@@ -134,11 +224,20 @@ public class ControlFrame extends JFrame
           (layout.createSequentialGroup()
            .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
                      .addGroup(layout.createSequentialGroup()
-                               .addComponent(shMemNameLabel)
-                               .addComponent(_sharedMemName))
-                     .addComponent(_startRecorder)
-                     .addComponent(_record)
-                     .addComponent(_showData))
+                               .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                         .addComponent(shMemNameLabel)
+                                         .addComponent(_sharedMemName))
+                               .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                         .addComponent(shMemSizeLabel)
+                                         .addComponent(_sharedMemSize))
+                               .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                         .addComponent(usedMemLabel)
+                                         .addComponent(_usedMemBar)))
+                     .addGroup(layout.createSequentialGroup()
+                               .addComponent(_startRecorder)
+                               .addComponent(_record)
+                               .addComponent(_showData))
+                     )
            .addComponent(rolabel)
            .addComponent(ro));
         var content = panel;

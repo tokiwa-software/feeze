@@ -49,7 +49,7 @@ import dev.flang.util.ANY;
  */
 class Data extends ANY implements Offsets
 {
-  final MappedByteBuffer _b;
+  private MappedByteBuffer _b;
   int names_processed = 0;
 
   TreeMap<Integer, SystemUser> _usersMap = new TreeMap<>();
@@ -87,6 +87,19 @@ class Data extends ANY implements Offsets
     _b = b;
   }
 
+  void close()
+  {
+    /* NYI: CLEANUP: This requires using java.lang.foreign.MemorySegment, there is no longer a proper way to unmap a MappedByteBuffer.
+     *
+    var cleaner = ((sun.nio.ch.DirecBuffer) _b).cleaner();
+    if (cleaner != null)
+      {
+        cleaner.clean();
+      }
+     */
+    _b = null;
+  }
+
   int kind(int at)
   {
     return Feeze.kind(at);
@@ -98,6 +111,20 @@ class Data extends ANY implements Offsets
                    : Feeze.new_pid(at);
     return _threadsMap.get(tpid);
   }
+
+  long byteSize()
+  {
+    return _b.getLong(0);
+  }
+  long usedBytes()
+  {
+    return entry_start_offset + unprocessedEntryCount()*ENTRY_SIZE;
+  }
+  long unprocessedEntryCount()
+  {
+    return _b.getLong(8);
+  }
+
 
   int entryCount()
   {
@@ -244,7 +271,7 @@ class Data extends ANY implements Offsets
 
   synchronized void processNewData()
   {
-    var num_entries = (int) _b.getLong(8);
+    var num_entries = (int) unprocessedEntryCount();
     if (names_processed < num_entries)
       {
         while (names_processed < num_entries)
