@@ -43,6 +43,7 @@ import java.util.TreeSet;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JToolTip;
 import javax.swing.SwingUtilities;
 
 import dev.flang.swing.Panorama;
@@ -253,6 +254,88 @@ class SchedulingPanorama extends Panorama
    */
   boolean[] _threadShown;
 
+
+  FeezeToolTip _toolTip = new FeezeToolTip(this);
+
+
+  /* (non-Javadoc)
+   * @see javax.swing.JComponent#createToolTip()
+   */
+  @Override
+  public JToolTip createToolTip()
+  {
+    return _toolTip;
+  }
+
+
+  /* (non-Javadoc)
+   * @see javax.swing.JComponent#getToolTipText(java.awt.event.MouseEvent)
+   */
+  @Override
+  public String getToolTipText(MouseEvent event)
+  {
+    String result = null;        // return null to suppress tool tip when outside of thread
+    var name = "+++ unknonw +++";
+    var state = "+++ unknown +++";
+    var x = event.getX();
+    var y = event.getY();
+    var ti = threadAt(y);
+    var timens = posx_to_nanos(x);
+    var time = TimeAsString.getString(timens, 1);
+    if (ti >= 0 && ti < numThreads() && y >= threadYTop(ti) && y < threadYBottom(ti))
+      {
+        var t = _threads.get(ti);
+        var ai = actionAt(t, x);
+        if (t instanceof CumulativeThread ct)
+          {
+            var nr = ct.numRunning(ai);
+            name = "All threads for user '"+t.user()+"'";
+            state =
+              (nr == 0 ? "no threads running" :
+               nr == 1 ? "one thread running"
+                       : "" + nr + " threads running");
+          }
+        else
+          {
+            name = t.toString(ai);
+            state = t.startsRunning(ai) ? "RUNNING" : "NOT RUNNING";
+            if (ai < 0)
+              {
+                // state unknown if no action index found
+              }
+            else if (ai == 0 && nanos_to_posx(_data.nanosAtSwitch(t.at(ai))) > x)
+              { // For first action, if it is to the right of `x`, running / not running are swapped and we do not know the time
+                state =
+                  t.stopsRunning (ai) ? "RUNNING"     :
+                  t.startsRunning(ai) ? "NOT RUNNING"
+                                      : state;
+              }
+            else if (ai+1 == t.numActions())
+              { // For last action, we also do not know the time
+              }
+            else if (t.startsRunning(ai) && t.stopsRunning (ai+1) ||
+                     t.stopsRunning (ai) && t.startsRunning(ai+1)    )
+              {
+                var delta = _data.nanosAtSwitch(t.at(ai+1)) - _data.nanosAtSwitch(t.at(ai));
+                var dt = TimeAsString.getString(delta, 1);
+                state = state + " for " + dt;
+              }
+            else
+              {
+                state = "UNDEFINED: LEFT: " + t.startsRunning(ai) + "/"+t.stopsRunning(ai) + " RIGHT: " + t.startsRunning(ai+1) + "/" + t.stopsRunning(ai+1);
+              }
+          }
+
+        result = name;
+
+        _toolTip._nameLabel.setText(name); // "Thread at "+event.getX()+","+event.getY());
+        _toolTip._stateLabel.setText(state);
+        _toolTip._timeLabel.setText("at "+time);
+        _toolTip.revalidate();
+        _toolTip.repaint();
+      }
+    return result;
+  }
 
   /*---------------------------  constructors  --------------------------*/
 

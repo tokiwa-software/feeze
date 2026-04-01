@@ -27,6 +27,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 package dev.flang.feeze;
 
+import java.util.Arrays;
+import java.util.Collections;
+
+import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 /*---------------------------------------------------------------------*/
 
@@ -115,6 +120,21 @@ class TimeAsString
       }
     while (ns != 0 && unit < _unitNs_.length);
     return result;
+  }
+
+
+  /**
+   * Create a String with human-readable units from a time given in ns.
+   *
+   * @param timens time in nanoseconds
+   *
+   * @return the corresponding String
+   */
+  static String getString(long timens, long grade)
+  {
+    var l = Arrays.asList(get(timens, 1));
+    Collections.reverse(l);
+    return l.stream().collect(Collectors.joining(" "));
   }
 
 
