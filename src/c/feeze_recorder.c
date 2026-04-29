@@ -74,9 +74,10 @@ struct  shared_buffer
   volatile uint64_t num_entries;
   volatile int      entry_start_offset;
   volatile int      entry_size;
-  volatile bool     done;
-  volatile bool     blabla;
-  volatile bool     blublu;
+  volatile char     done;
+  volatile char     unused2;
+  volatile char     unused3;
+  volatile char     unused4;
 };
 
 #define ENTRY_KIND_UNUSED       0
@@ -213,30 +214,28 @@ static void sig_handler(int sig)
  */
 void post_entry(struct entry *e)
 {
-  if (!finishing)
+  uint64_t ec = eventcount;
+  entry* entries = (entry*) &(shmem[1]);
+  if ((void*) &entries[ec+1] > (void*) &((char*)shmem)[SHARED_MEM_SIZE])
     {
-      uint64_t ec = eventcount;
-      entry* entries = (entry*) &(shmem[1]);
-      if ((void*) &entries[ec+1] > (void*) &((char*)shmem)[SHARED_MEM_SIZE])
+      printf("shared mem buffer full\n");
+      finishing = true;
+    }
+  else
+    {
+      entries[ec] = *e;
+      __sync_synchronize();
+      shmem->num_entries = ec+1;
+      __sync_synchronize();
+      eventcount = ec+1;
+      uint64_t n = eventcount; //  & ~((uint64_t) 0x3f);
+      if (false && (n & (n-1))==0)
         {
-          printf("shared mem buffer full\n");
-          finishing = true;
-        }
-      else
-        {
-          entries[ec] = *e;
-          __sync_synchronize();
-          shmem->num_entries = ec+1;
-          eventcount = ec+1;
-          uint64_t n = eventcount; //  & ~((uint64_t) 0x3f);
-          if (false && (n & (n-1))==0)
-            {
-              printf("thread switch %lu: %d (%s) -> %d (%s) at %luns\n",
-                     eventcount,
-                     e->payload.ss.old_tid, e->payload.ss.old_name,
-                     e->payload.ss.new_tid, e->payload.ss.new_name,
-                     e->payload.ss.ns);
-            }
+          printf("thread switch %lu: %d (%s) -> %d (%s) at %luns\n",
+                 eventcount,
+                 e->payload.ss.old_tid, e->payload.ss.old_name,
+                 e->payload.ss.new_tid, e->payload.ss.new_name,
+                 e->payload.ss.ns);
         }
     }
 }
@@ -445,8 +444,8 @@ char *get_user_name(uid_t uid, char *buffer, int n)
 
 
 /**
- * Check if process pid was already encountered. If not, create and post an
- * entry of ENTRY_KIND_PROCESS for this process.
+ * Check if user uid was already encountered. If not, create and post an
+ * entry of ENTRY_KIND_USER for this user.
  */
 void add_user(uid_t uid)
 {
@@ -460,7 +459,6 @@ void add_user(uid_t uid)
       en.payload.u.uid = uid;
       get_user_name(uid, (char*)&en.payload.u.name, sizeof(en.payload.u.name));
       post_entry(&en);
-      fprintf(stderr,"USER %d '%s'\n",uid,en.payload.u.name);
     }
 }
 
@@ -608,6 +606,7 @@ void *record(void *arg)
   eventcount = 0;
   num_threads = 0;
   num_processes = 0;
+  num_users = 0;
   finishing = false;
 
   struct ring_buffer *rb = NULL;
@@ -644,9 +643,7 @@ void *record(void *arg)
   shmem->num_entries = 0;
   shmem->entry_start_offset = entry_start_offset;
   shmem->entry_size = entry_size;
-  shmem->done = false;
-  shmem->blabla = true;
-  shmem->blublu = true;
+  shmem->done = (char) 0;
   // atomic_thread_fence(std::memory_order_release);
   __sync_synchronize();
   shmem->size = config->shmem_size;
@@ -725,7 +722,7 @@ void *record(void *arg)
 
   while (!finishing)
     {
-      err = ring_buffer__poll(rb, 100 /* timeout, ms */);
+      err = ring_buffer__poll(rb, 0 /* timeout, ms */);
 
       if (err < 0)
         {
@@ -734,8 +731,17 @@ void *record(void *arg)
         }
       else
         {
-          sleep(1);
+          uint64_t ms_poll_delay = 10LL; // NYI: Make this configurable from Feeze GUI
+          uint64_t nanos = ms_poll_delay * 1000000LL;
+          uint64_t s  = nanos /   1000000000LL;
+          uint64_t ns = nanos - s*1000000000LL;
+          struct timespec req = (struct timespec){s, ns};
+          while (nanosleep(&req, &req));
         }
+    }
+  if (err >= 0)
+    {
+      err = ring_buffer__poll(rb, 1 /* timeout, ms */);
     }
 
  cleanup:
@@ -750,7 +756,7 @@ void *record(void *arg)
     }
   if (shmem != MAP_FAILED)
     {
-      shmem->done = true;
+      shmem->done = (char) 1;
       __sync_synchronize();
     }
   if (shmem != MAP_FAILED && !false)

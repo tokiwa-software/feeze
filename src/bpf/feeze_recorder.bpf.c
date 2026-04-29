@@ -47,7 +47,7 @@ struct {
 /* BPF ringbuf map */
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
-	__uint(max_entries, 10 * 1024 * 1024 /* 10 MB */);
+	__uint(max_entries, 10 * 1024 * 1024 /* 10 MB. NYI: Can we make this configurable via Feeze GUI? */);
 } rb SEC(".maps");
 
 

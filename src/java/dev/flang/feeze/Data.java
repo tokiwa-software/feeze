@@ -283,9 +283,9 @@ class Data extends ANY implements Offsets
                 {
                   var uid  = getInt(names_processed, ENTRY_U_UID_OFFSET);
                   var name = getName(names_processed, ENTRY_U_NAME_OFFSET, ENTRY_U_NAME_LENGTH);
-                  var u = new SystemUser(this, uid, name, _users.size());
-                  _usersMap.put(uid, u);
-                  _users.add(u);
+                  var user = new SystemUser(this, uid, name, _users.size());
+                  _usersMap.put(uid, user);
+                  _users.add(user);
                   break;
                 }
               case ENTRY_KIND_PROCESS:
@@ -293,7 +293,15 @@ class Data extends ANY implements Offsets
                   var pid  = getInt(names_processed, ENTRY_P_PID_OFFSET);
                   var uid  = getInt(names_processed, ENTRY_P_UID_OFFSET);
                   var name = getName(names_processed, ENTRY_P_NAME_OFFSET, ENTRY_P_NAME_LENGTH);
-                  var p = new SystemProcess(pid, uid, name, _processes.size(), _usersMap.get(uid));
+                  var user = _usersMap.get(uid);
+                  if (user == null)
+                    {
+                      System.err.println("**** unknown user "+uid);
+                      user = new SystemUser(this, uid, "unknown", _users.size());
+                      _usersMap.put(uid, user);
+                      _users.add(user);
+                    }
+                  var p = new SystemProcess(pid, uid, name, _processes.size(), user);
                   _processesMap.put(pid, p);
                   _processes.add(p);
                   break;
@@ -339,9 +347,17 @@ class Data extends ANY implements Offsets
           }
       }
     _threads.sort((t1,t2) ->
-                  t1._p._user._num != t2._p._user._num ? Integer.compare(t1._p._user._num, t2._p._user._num) :
-                  t1._p._num       != t2._p._num       ? Integer.compare(t1._p._num,       t2._p._num      )
-                                                       : Integer.compare(t1._tid,          t2._tid         ));
+                  {
+                    var u1 = t1._p._user._num;
+                    var u2 = t2._p._user._num;
+                    var p1 = t1._p._num;
+                    var p2 = t2._p._num;
+                    var i1 = t1._tid;
+                    var i2 = t2._tid;
+                    return u1 != u2 ? Integer.compare(u1, u2) :
+                           p1 != p2 ? Integer.compare(p1, p2)
+                                    : Integer.compare(i1, i2);
+                  });
     _cpus.sort((c1,c2) -> Integer.compare(c1._id, c2._id));
     for (var n = 0; n < _threads.size(); n++)
       {
