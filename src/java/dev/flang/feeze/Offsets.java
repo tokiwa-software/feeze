@@ -67,6 +67,7 @@ public interface Offsets
 
   public static int ENTRY_KIND_UNUSED       = 0;
   public static int ENTRY_KIND_SCHED_SWITCH = 1;
+  public static int ENTRY_KIND_SCHED_WAKEUP = 5;
   public static int ENTRY_KIND_USER         = 2;
   public static int ENTRY_KIND_PROCESS      = 3;
   public static int ENTRY_KIND_THREAD       = 4;

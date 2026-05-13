@@ -61,7 +61,7 @@ abstract class FeezeThread extends ActionSubSet
   @Override
   public boolean startsRunning(int i)
   {
-    return this == _data.newThreadAt(at(i));
+    return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_SWITCH && this == _data.newThreadAt(at(i));
   }
   @Override
   public boolean continuesRunning(int i)
@@ -71,7 +71,12 @@ abstract class FeezeThread extends ActionSubSet
   @Override
   public boolean stopsRunning(int i)
   {
-    return this == _data.oldThreadAt(at(i));
+    return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_SWITCH && this == _data.oldThreadAt(at(i));
+  }
+  @Override
+  public boolean wakesup(int i)
+  {
+    return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_WAKEUP;
   }
 
   /**

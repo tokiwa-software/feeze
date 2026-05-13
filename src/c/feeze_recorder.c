@@ -82,6 +82,7 @@ struct  shared_buffer
 
 #define ENTRY_KIND_UNUSED       0
 #define ENTRY_KIND_SCHED_SWITCH 1
+#define ENTRY_KIND_SCHED_WAKEUP 5
 #define ENTRY_KIND_USER         2
 #define ENTRY_KIND_PROCESS      3
 #define ENTRY_KIND_THREAD       4
@@ -115,6 +116,18 @@ struct sched_switch_payload
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
+struct sched_wakeup_payload
+{
+  pid_t old_tid;
+  //  int old_pri;
+  char	old_name[16 /* TASK_COMM_LEN */];
+  pid_t new_tid;
+  //  int new_pri;
+  char	new_name[16 /* TASK_COMM_LEN */];
+  uint64_t ns;
+  uint32_t cpu_id;
+  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
+};
 
 struct entry
 {
@@ -128,6 +141,7 @@ struct entry
     struct process_payload      p;
     struct thread_payload       t;
     struct sched_switch_payload ss;
+    struct sched_wakeup_payload sw;
   } payload;
 };
 
@@ -510,6 +524,8 @@ void add_thread(pid_t tid, char name[16])
     }
 }
 
+static int64_t cnt = 0;
+
 
 /**
  * handle event arriving in the ring buffer form BPF code
@@ -526,7 +542,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           printf("shared mem buffer full\n"); // fflush(stdout);
           finishing = true;
         }
-      else
+      else if (e->event_kind == RB_EVENT_SCHED_SWITCH)
         {
           add_thread(e->old_pid, (char*) &e->old_name);
           add_thread(e->new_pid, (char*) &e->comm    );
@@ -541,6 +557,26 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           en.payload.ss.ns = e->ns;
           en.payload.ss.cpu_id = e->cpu_id;
           en.payload.ss.count = e->count;
+          post_entry(&en);
+        }
+      else if (e->event_kind == RB_EVENT_SCHED_WAKEUP)
+        {
+          /*
+          cnt++;
+          if ((cnt&(cnt-1))==0)
+            {
+              printf("wakeup count %ld %d %d %s\n",cnt, e->old_pid, e->new_pid, &e->comm);
+            }
+          */
+          add_thread(e->new_pid, (char*) &e->comm    );
+          struct entry en;
+          en.kind = ENTRY_KIND_SCHED_WAKEUP;
+          en.payload.sw.old_tid = -1;
+          en.payload.sw.new_tid = e->new_pid;
+          memcpy(&en.payload.sw.new_name, &e->comm, sizeof(en.payload.sw.new_name));
+          en.payload.sw.ns = e->ns;
+          en.payload.sw.cpu_id = e->cpu_id;
+          en.payload.sw.count = e->count;
           post_entry(&en);
         }
     }

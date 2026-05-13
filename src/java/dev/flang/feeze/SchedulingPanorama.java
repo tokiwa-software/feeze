@@ -277,6 +277,7 @@ class SchedulingPanorama extends Panorama
     String result = null;        // return null to suppress tool tip when outside of thread
     var name = "+++ unknonw +++";
     var state = "+++ unknown +++";
+    var cpu = "";
     var x = event.getX();
     var y = event.getY();
     var ti = threadAt(y);
@@ -297,39 +298,43 @@ class SchedulingPanorama extends Panorama
           }
         else
           {
+            var duration = "";
             name = t.toString(ai);
-            state = t.startsRunning(ai) ? "RUNNING" : "NOT RUNNING";
-            if (ai < 0)
-              {
-                // state unknown if no action index found
-              }
-            else if (ai == 0 && nanos_to_posx(_data.nanosAtSwitch(t.at(ai))) > x)
+            var tstate = ai < 0 ? ThreadState.unknown : stateAt(t, ai);
+            if (ai == 0 && nanos_to_posx(_data.nanosAtSwitch(t.at(ai))) > x)
               { // For first action, if it is to the right of `x`, running / not running are swapped and we do not know the time
-                state =
-                  t.stopsRunning (ai) ? "RUNNING"     :
-                  t.startsRunning(ai) ? "NOT RUNNING"
-                                      : state;
-              }
-            else if (ai+1 == t.numActions())
-              { // For last action, we also do not know the time
-              }
-            else if (t.startsRunning(ai) && t.stopsRunning (ai+1) ||
-                     t.stopsRunning (ai) && t.startsRunning(ai+1)    )
-              {
-                var delta = _data.nanosAtSwitch(t.at(ai+1)) - _data.nanosAtSwitch(t.at(ai));
-                var dt = TimeAsString.getString(delta, 1);
-                state = state + " for " + dt;
+                tstate = tstate.prev();
               }
             else
               {
-                state = "UNDEFINED: LEFT: " + t.startsRunning(ai) + "/"+t.stopsRunning(ai) + " RIGHT: " + t.startsRunning(ai+1) + "/" + t.stopsRunning(ai+1);
+                if (!(t instanceof CumulativeThread))
+                  {
+                    if (tstate == ThreadState.running ||
+                        tstate == ThreadState.running_contd)
+                      {
+                        cpu = "ON CPU" + t.cpu_id(ai);
+                      }
+                    else if (tstate == ThreadState.ready)
+                      {
+                        cpu = "CAUSED by CPU" + t.cpu_id(ai);
+                      }
+                  }
+                if (ai+1 < t.numActions() &&
+                    stateAt(t, ai+1) != ThreadState.unknown    )
+                  {
+                    var delta = _data.nanosAtSwitch(t.at(ai+1)) - _data.nanosAtSwitch(t.at(ai));
+                    var dt = TimeAsString.getString(delta, 1);
+                    duration = " for " + dt;
+                  }
               }
+            state = tstate._name + duration;
           }
 
         result = name;
 
         _toolTip._nameLabel.setText(name); // "Thread at "+event.getX()+","+event.getY());
         _toolTip._stateLabel.setText(state);
+        _toolTip._cpuLabel.setText(cpu);
         _toolTip._timeLabel.setText("at "+time);
         _toolTip.revalidate();
         _toolTip.repaint();
@@ -1068,6 +1073,86 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  static int _passiveWidth_    = 1;  // the width of an inactive period
+  static int _activeWidth_     = 15; // the width of an active period
+  static int _passiveWidthCPU_ = 1;  // the width of an inactive period in CPU display
+  static int _activeWidthCPU_  = 6;  // the width of an active period in CPU display
+
+
+  /**
+   * Thread states
+   */
+  static enum ThreadState
+  {
+    blocked      (Color.gray,    _passiveWidth_ , _passiveWidthCPU_ , "BLOCKED"),
+    running      (DARK_GREEN,    _activeWidth_  , _activeWidthCPU_  , "RUNNING"),
+    running_contd(DARK_GREEN,    _activeWidth_  , _activeWidthCPU_  , "RUNNING"),  // like `running`, but previous state was also `running`
+    ready        (Color.blue,    _activeWidth_/2, _activeWidthCPU_/2, "READY"  ),
+    unknown      (Color.magenta, 2*_activeWidth_, 2*_activeWidthCPU_, "UNKNOWN");
+
+    Color _color;     // color this state is drawn in
+    int   _width;     // width of the thread line in this state
+    int   _widthCpu;  // width of the CPU line in this state
+    String _name;     // name of this state
+
+    /**
+     *  Constructor for given _color/_width/_/widthCpu/_name.
+     */
+    ThreadState(Color c, int w, int wcpu, String name)
+    {
+      _color = c;
+      _width = w;
+      _widthCpu = wcpu;
+      _name = name;
+    }
+
+
+    /**
+     * For drawing the left side of the data before the first event: the most
+     * likely previous state of this thread.
+     */
+    ThreadState prev()
+    {
+      return switch (ThreadState.this)
+        {
+        case blocked       -> running;
+        case running       -> ready;
+        case running_contd -> running;
+        case ready         -> blocked;
+        case unknown       -> unknown;
+        };
+    }
+
+    /**
+     * The width do draw this with
+     *
+     * @param cpu true iff drawn in CPU display.
+     */
+    int width(boolean cpu)
+    {
+      return cpu ? _widthCpu : _width;
+    }
+
+  }
+
+
+  /**
+   * Get the new thread state at given index in resource
+   *
+   * @param resource the CPU or thread to show
+   *
+   * @param at the index of the revent
+   */
+  ThreadState stateAt(ActionSubSet resource, int at)
+  {
+    return
+      resource.stopsRunning(at)                                   ? ThreadState.blocked :
+      resource.startsRunning(at) || resource.continuesRunning(at) ? ThreadState.running :
+      resource.wakesup(at)                                        ? ThreadState.ready
+                                                                  : ThreadState.unknown;
+  }
+
+
   /**
    * Show when a thread or CPU is running along a horizontal line
    *
@@ -1079,39 +1164,20 @@ class SchedulingPanorama extends Panorama
    *
    * @param r the visible rectangle to draw to
    *
-   * @param passiveWidth the width of an inactive period
-   *
-   * @param activeWidth the width of an active period
+   * @param cpu true when drawing CPU states, false for threads
    */
   void showRunning(Graphics g,
                    ActionSubSet resource,
                    int y,
                    Rectangle r,
-                   int passiveWidth,
-                   int activeWidth)
+                   boolean cpu)
   {
     int blurredUpToX = -1;
     int from_a = actionAt(resource, r.x);
     int to_a = actionAt(resource, r.x+r.width)+1;
     for (var a = from_a; a<to_a; a++)
       {
-        Color nextCol;
-        int nextWidth;
-        if (resource.stopsRunning(a))
-          {
-            nextCol = Color.gray;
-            nextWidth = passiveWidth;
-          }
-        else if (resource.startsRunning(a) || resource.continuesRunning(a))
-          {
-            nextCol = DARK_GREEN;
-            nextWidth = activeWidth;
-          }
-        else
-          {
-            nextCol = Color.magenta;
-            nextWidth = activeWidth + activeWidth / 3;
-          }
+        var state = stateAt(resource, a);
         var nl = _data.nanosAtSwitch(resource.at(a))-_data.nanosMin();
         var nr = (a+1 >= resource.numActions() ? _data.nanosMax()
                                                : _data.nanosAtSwitch(resource.at(a+1))) -_data.nanosMin();
@@ -1125,53 +1191,21 @@ class SchedulingPanorama extends Panorama
                                                 : _data.nanosAtSwitch(resource.at(a+2))) -_data.nanosMin();
         if (a == 0)
           {
-            if (resource.stopsRunning(a))
-              {
-                g.setColor(DARK_GREEN);
-                _zoom.drawHLine(g,activeWidth,nanos_to_posx(0),y,xl);
-              }
-            else if (resource.startsRunning(a))
-              {
-                g.setColor(Color.gray);
-                _zoom.drawHLine(g,passiveWidth,nanos_to_posx(0),y,xl);
-              }
-            else
-              {
-                nextCol = Color.magenta;
-                nextWidth = activeWidth + activeWidth / 3;
-              }
+            var p = state.prev();
+            g.setColor(p._color);
+            _zoom.drawHLine(g,p.width(cpu),nanos_to_posx(0),y,xl);
           }
 
         if (posx_to_nanos(xl+2) < nnr)
           {
-            g.setColor(nextCol);
-
-            _zoom.drawHLine(g,nextWidth,xl,y,xr-1);
+            g.setColor(state._color);
+            _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
           }
         else if (blurredUpToX < xr)
           {
             g.setColor(VERY_DARK_GREEN);
-            _zoom.drawHLine(g,activeWidth,xl,y,xr-1);
+            _zoom.drawHLine(g,cpu ? _activeWidthCPU_ : _activeWidth_,xl,y,xr-1);
             blurredUpToX = xr;
-          }
-
-        var a0 = a;
-        if (xr > r.x+r.width)
-          {
-            a = resource.numActions();
-          }
-        if (a+1 >= resource.numActions())
-          {
-            if (resource.stopsRunning(a0))
-              {
-                g.setColor(Color.gray);
-                _zoom.drawHLine(g,passiveWidth,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-              }
-            else if (resource.startsRunning(a0))
-              {
-                g.setColor(DARK_GREEN);
-                _zoom.drawHLine(g,activeWidth,xr,y,nanos_to_posx(_data.nanosAtOrBefore(_data.entryCount()-1)-_data.nanosMin()));
-              }
           }
       }
   }
@@ -1217,7 +1251,7 @@ class SchedulingPanorama extends Panorama
 
                         var cpu = _data.cpu(i);
                         var y = cpuY(i);
-                        showRunning(g, cpu, y, r, 1, 6);
+                        showRunning(g, cpu, y, r, true);
                       }
                   }
                 g.setColor(Color.white);
@@ -1272,7 +1306,7 @@ class SchedulingPanorama extends Panorama
                         nameShownAt = nanos_to_posx(nameShownAtNS);
                       }
 
-                    showRunning(g, t, y, r, 1, 15);
+                    showRunning(g, t, y, r, false);
 
                     /* disabled code to show the CPU we are running on. Better make this part of a tooltip!
                        cpu = t.cpu_id(a);

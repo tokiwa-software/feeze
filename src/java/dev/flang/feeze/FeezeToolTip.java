@@ -76,6 +76,7 @@ class FeezeToolTip extends JToolTip
 
   JLabel _nameLabel  = new JLabel("name");
   JLabel _stateLabel = new JLabel("state");
+  JLabel _cpuLabel   = new JLabel("CPU");
   JLabel _timeLabel  = new JLabel("time");
 
 
@@ -106,6 +107,9 @@ class FeezeToolTip extends JToolTip
 
     _stateLabel.setFont(tooltipFont);
     _renderer.add(_stateLabel);
+
+    _cpuLabel.setFont(tooltipFont);
+    _renderer.add(_cpuLabel);
 
     _timeLabel.setFont(tooltipFont);
     _renderer.add(_timeLabel);

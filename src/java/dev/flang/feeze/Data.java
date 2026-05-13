@@ -149,7 +149,8 @@ class Data extends ANY implements Offsets
       {
         switch (kind(at))
           {
-          case ENTRY_KIND_SCHED_SWITCH: return Feeze.ns(at);
+          case ENTRY_KIND_SCHED_SWITCH:
+          case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
           default: break;
           }
         at++;
@@ -163,7 +164,8 @@ class Data extends ANY implements Offsets
       {
         switch (kind(at))
           {
-          case ENTRY_KIND_SCHED_SWITCH: return Feeze.ns(at);
+          case ENTRY_KIND_SCHED_SWITCH:
+          case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
           default: break;
           }
         at--;
@@ -178,7 +180,9 @@ class Data extends ANY implements Offsets
   {
     switch (kind(at))
       {
-      case ENTRY_KIND_SCHED_SWITCH: return Feeze.ns(at);
+      case ENTRY_KIND_SCHED_SWITCH:
+      case ENTRY_KIND_SCHED_WAKEUP:
+        return Feeze.ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
       }
   }
@@ -189,7 +193,9 @@ class Data extends ANY implements Offsets
    */
   long nanosAtOrBefore(int at)
   {
-    while (kind(at) != ENTRY_KIND_SCHED_SWITCH && at > 0)
+    while (kind(at) != ENTRY_KIND_SCHED_SWITCH &&
+           kind(at) != ENTRY_KIND_SCHED_WAKEUP &&
+           at > 0)
       {
         at--;
       }
@@ -210,6 +216,7 @@ class Data extends ANY implements Offsets
     switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH:
+      case ENTRY_KIND_SCHED_WAKEUP:
         var c = Feeze.count(at);
         _hasCount.set(c);
         return c;
@@ -226,7 +233,8 @@ class Data extends ANY implements Offsets
   {
     return switch (kind(at))
       {
-      case ENTRY_KIND_SCHED_SWITCH -> at>0 && count(at)>0 && hasCount(count(at)) && !hasCount(count(at)-1);
+      case ENTRY_KIND_SCHED_SWITCH,
+           ENTRY_KIND_SCHED_WAKEUP -> at>0 && count(at)>0 && hasCount(count(at)) && !hasCount(count(at)-1);
       default -> false;
       };
   }
@@ -322,6 +330,26 @@ class Data extends ANY implements Offsets
                   var ot = thread(names_processed, true);
                   var nt = thread(names_processed, false);
                   ot.addAction(names_processed);
+                  nt.addAction(names_processed);
+                  var cpu_id = cpu_id(names_processed);
+                  if (cpu_id >= 0)
+                    {
+                      if (!_cpu_ids.get(cpu_id))
+                        {
+                          _cpu_ids.set(cpu_id);
+                          var cpu = new Cpu(this, cpu_id);
+                          _cpusMap.put(cpu_id, cpu);
+                          _cpus.add(cpu);
+                        }
+                      var cpu = _cpusMap.get(cpu_id);
+                      cpu.addAction(names_processed);
+                    }
+                  break;
+                }
+              case ENTRY_KIND_SCHED_WAKEUP:
+                {
+                  var ignore = count(names_processed);
+                  var nt = thread(names_processed, false);
                   nt.addAction(names_processed);
                   var cpu_id = cpu_id(names_processed);
                   if (cpu_id >= 0)

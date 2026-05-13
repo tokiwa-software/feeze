@@ -33,6 +33,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #ifndef __FEEZE_RECORDER_COMMON_H
 #define __FEEZE_RECORDER_COMMON_H
 
+#define RB_EVENT_SCHED_SWITCH 13
+#define RB_EVENT_SCHED_WAKEUP 25
+
+
 /**
  * Event record to be exchanged via ring buffer.
  *
@@ -41,6 +45,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 struct event
 {
+  int event_kind;
   pid_t old_pid;
   int old_pri;
   char	old_name[16 /* TASK_COMM_LEN */];

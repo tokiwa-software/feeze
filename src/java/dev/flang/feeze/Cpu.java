@@ -67,6 +67,11 @@ class Cpu extends ActionSubSet
   {
     return !_data.oldThreadAt(at(i)).isSwapper();
   }
+  @Override
+  public boolean wakesup(int i)
+  {
+    return false;
+  }
 
   @Override
   public String toString()
