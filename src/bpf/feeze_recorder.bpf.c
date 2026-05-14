@@ -34,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #include <bpf/bpf_core_read.h>
 #include "feeze_recorder_common.h"
 
-char LICENSE[] SEC("license") = "AGPLv3";
+char LICENSE[] SEC("license") = "GPL";
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -124,49 +124,111 @@ int on_task_switch(struct trace_event_raw_sched_switch *ctx)
 SEC("tracepoint/sched/sched_wakeup")
 int on_task_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
 {
-   struct event *e;
-   int zero = 0;
-   e = bpf_map_lookup_elem(&heap, &zero);
-   if (e)
-     {
-       if (ctx)
-         {
-           e->event_kind = RB_EVENT_SCHED_WAKEUP;
-           e->old_pid = -1; // ctx->ent.pid;
-           //e->old_pid = ctx->ent.pid;
-           e->new_pid = ctx->pid;
-           e->new_pri = ctx->prio;
-           e->comm[0] = ctx->comm[0];
-           e->comm[1] = ctx->comm[1];
-           e->comm[2] = ctx->comm[2];
-           e->comm[3] = ctx->comm[3];
-           e->comm[4] = ctx->comm[4];
-           e->comm[5] = ctx->comm[5];
-           e->comm[6] = ctx->comm[6];
-           e->comm[7] = ctx->comm[7];
-           e->comm[8] = ctx->comm[8];
-           e->comm[9] = ctx->comm[9];
-           e->comm[10] = ctx->comm[10];
-           e->comm[11] = ctx->comm[11];
-           e->comm[12] = ctx->comm[12];
-           e->comm[13] = ctx->comm[13];
-           e->comm[14] = ctx->comm[14];
-           e->comm[15] = ctx->comm[15];
-           /*
-           */
-           e->cpu_id = bpf_get_smp_processor_id();
-           e->ns = bpf_ktime_get_ns();
-           e->count = __sync_fetch_and_add(&count, 1);
-           if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)
-             {
-               // ok
-             }
-           else
-             {
-               // error
-             }
-         }
-     }
+  int kind = RB_EVENT_SCHED_WAKEUP;
+  struct event *e;
+  int zero = 0;
+  e = bpf_map_lookup_elem(&heap, &zero);
+  if (e)
+    {
+      if (ctx)
+        {
+          e->event_kind = kind;
 
+          /* not sure why this does not work, produces `invalid bpf_context access off=4 size=4`
+
+          e->old_pid = ctx->ent.pid;
+
+             so instead, using `bpf_get_current_pid_tgid`:
+
+          */
+          e->old_pid = (pid_t) bpf_get_current_pid_tgid()&0xffffffff;
+
+          e->new_pid = ctx->pid;
+          e->new_pri = ctx->prio;
+          e->comm[0] = ctx->comm[0];
+          e->comm[1] = ctx->comm[1];
+          e->comm[2] = ctx->comm[2];
+          e->comm[3] = ctx->comm[3];
+          e->comm[4] = ctx->comm[4];
+          e->comm[5] = ctx->comm[5];
+          e->comm[6] = ctx->comm[6];
+          e->comm[7] = ctx->comm[7];
+          e->comm[8] = ctx->comm[8];
+          e->comm[9] = ctx->comm[9];
+          e->comm[10] = ctx->comm[10];
+          e->comm[11] = ctx->comm[11];
+          e->comm[12] = ctx->comm[12];
+          e->comm[13] = ctx->comm[13];
+          e->comm[14] = ctx->comm[14];
+          e->comm[15] = ctx->comm[15];
+          e->cpu_id = ctx->target_cpu;
+          e->ns = bpf_ktime_get_ns();
+          e->count = __sync_fetch_and_add(&count, 1);
+          if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)
+            {
+              // ok
+            }
+          else
+            {
+              // error
+            }
+        }
+    }
+  return 0;
+}
+
+SEC("tracepoint/sched/sched_waking")
+int on_task_waking(struct trace_event_raw_sched_wakeup_template *ctx)
+{
+  int kind = RB_EVENT_SCHED_WAKING;
+  struct event *e;
+  int zero = 0;
+  e = bpf_map_lookup_elem(&heap, &zero);
+  if (e)
+    {
+      if (ctx)
+        {
+          e->event_kind = kind;
+
+          /* not sure why this does not work, produces `invalid bpf_context access off=4 size=4`
+
+          e->old_pid = ctx->ent.pid;
+
+             so instead, using `bpf_get_current_pid_tgid`:
+
+          */
+          e->old_pid = (pid_t) bpf_get_current_pid_tgid()&0xffffffff;
+
+          e->new_pid = ctx->pid;
+          e->new_pri = ctx->prio;
+          e->comm[0] = ctx->comm[0];
+          e->comm[1] = ctx->comm[1];
+          e->comm[2] = ctx->comm[2];
+          e->comm[3] = ctx->comm[3];
+          e->comm[4] = ctx->comm[4];
+          e->comm[5] = ctx->comm[5];
+          e->comm[6] = ctx->comm[6];
+          e->comm[7] = ctx->comm[7];
+          e->comm[8] = ctx->comm[8];
+          e->comm[9] = ctx->comm[9];
+          e->comm[10] = ctx->comm[10];
+          e->comm[11] = ctx->comm[11];
+          e->comm[12] = ctx->comm[12];
+          e->comm[13] = ctx->comm[13];
+          e->comm[14] = ctx->comm[14];
+          e->comm[15] = ctx->comm[15];
+          e->cpu_id = ctx->target_cpu;
+          e->ns = bpf_ktime_get_ns();
+          e->count = __sync_fetch_and_add(&count, 1);
+          if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)
+            {
+              // ok
+            }
+          else
+            {
+              // error
+            }
+        }
+    }
   return 0;
 }

@@ -74,6 +74,11 @@ abstract class FeezeThread extends ActionSubSet
     return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_SWITCH && this == _data.oldThreadAt(at(i));
   }
   @Override
+  public boolean waking(int i)
+  {
+    return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_WAKING;
+  }
+  @Override
   public boolean wakesup(int i)
   {
     return _data.kind(at(i)) == Offsets.ENTRY_KIND_SCHED_WAKEUP;

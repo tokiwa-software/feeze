@@ -232,6 +232,32 @@ class Zoom
       }
   }
 
+  /**
+   * Draw a vertical arrow
+   *
+   * @param g graphics environment
+   *
+   * @param width the unzoomed width of the arrow
+   *
+   * @param x the zoomed (!) x coordinate of the start
+   *
+   * @param y1 the zoomed (!) y coordinate of the start
+   *
+   * @param y2 the zoomed (!) y coordinate of the end
+   */
+  void drawVArrow(Graphics g,
+                  int width,
+                  int x,
+                  int y1,
+                  int y2)
+  {
+    drawVLine(g, width, x, y1, y2);
+    var dx = 2*zoom(width);
+    var dy = y2 >= y1 ? -2*dx : 2*dx;
+    drawLine(g, width, x, y2, x-dx, y2+dy);
+    drawLine(g, width, x, y2, x+dx, y2+dy);
+  }
+
 
   void drawRect(Graphics g,
                 int width,

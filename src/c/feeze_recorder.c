@@ -80,12 +80,13 @@ struct  shared_buffer
   volatile char     unused4;
 };
 
-#define ENTRY_KIND_UNUSED       0
-#define ENTRY_KIND_SCHED_SWITCH 1
-#define ENTRY_KIND_SCHED_WAKEUP 5
-#define ENTRY_KIND_USER         2
-#define ENTRY_KIND_PROCESS      3
-#define ENTRY_KIND_THREAD       4
+#define ENTRY_KIND_UNUSED        0
+#define ENTRY_KIND_SCHED_SWITCH  1
+#define ENTRY_KIND_SCHED_WAKING  5
+#define ENTRY_KIND_SCHED_WAKEUP  6
+#define ENTRY_KIND_USER          2
+#define ENTRY_KIND_PROCESS       3
+#define ENTRY_KIND_THREAD        4
 
 struct user_payload
 {
@@ -559,7 +560,8 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           en.payload.ss.count = e->count;
           post_entry(&en);
         }
-      else if (e->event_kind == RB_EVENT_SCHED_WAKEUP)
+      else if (e->event_kind == RB_EVENT_SCHED_WAKEUP ||
+               e->event_kind == RB_EVENT_SCHED_WAKING    )
         {
           /*
           cnt++;
@@ -570,12 +572,14 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           */
           add_thread(e->new_pid, (char*) &e->comm    );
           struct entry en;
-          en.kind = ENTRY_KIND_SCHED_WAKEUP;
+          en.kind = e->event_kind == RB_EVENT_SCHED_WAKEUP ? ENTRY_KIND_SCHED_WAKEUP :
+                    e->event_kind == RB_EVENT_SCHED_WAKING ? ENTRY_KIND_SCHED_WAKING : -1;
           en.payload.sw.old_tid = -1;
           en.payload.sw.new_tid = e->new_pid;
           memcpy(&en.payload.sw.new_name, &e->comm, sizeof(en.payload.sw.new_name));
           en.payload.sw.ns = e->ns;
           en.payload.sw.cpu_id = e->cpu_id;
+          en.payload.sw.old_tid = e->old_pid;
           en.payload.sw.count = e->count;
           post_entry(&en);
         }

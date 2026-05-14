@@ -305,8 +305,10 @@ class SchedulingPanorama extends Panorama
             else
               {
                 cpu = tstate == ThreadState.running ||
-                      tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(ai) :
-                      tstate == ThreadState.ready         ? "CAUSED by CPU" + t.cpu_id(ai) : "";
+                      tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(ai)
+                    : tstate == ThreadState.waking        ? "CAUSED by " + Feeze.old_pid(t.at(ai))+":" +_data.oldThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
+                    : tstate == ThreadState.wakesup       ? "CAUSED by " + Feeze.old_pid(t.at(ai))+":" +_data.oldThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
+                    : "";
                 if (ai+1 < t.numActions() &&
                     stateAt(t, ai+1) != ThreadState.error    )
                   {
@@ -591,6 +593,29 @@ class SchedulingPanorama extends Panorama
        i < numThreads());
 
     return _threads.get(i);
+  }
+
+
+  /**
+   * Get the index of given thread
+   *
+   * @param t a thread
+   *
+   * @return t's index or -1 if t is not in the set of displayed threads.
+   */
+  public int threadIndex(FeezeThread t)
+  {
+    if (ANY.PRECONDITIONS) ANY.require
+      (t != null);
+
+    // NYI: OPTIMIZATION: This might be expensive in case we have many threads,
+    // we could instead store the index in FeezeThread.
+    var res = numThreads()-1;
+    while (res >= 0 && thread(res) != t)
+      {
+        res--;
+      }
+    return res;
   }
 
 
@@ -1063,22 +1088,51 @@ class SchedulingPanorama extends Panorama
 
 
   static int _passiveWidth_    = 1;  // the width of an inactive period
+  static int _wakingWidth_     = 5;  // the width of a waking period
+  static int _wakesupWidth_    = 10; // the width of a wakesup period
   static int _activeWidth_     = 15; // the width of an active period
+
   static int _passiveWidthCPU_ = 1;  // the width of an inactive period in CPU display
+  static int _wakingWidthCPU_  = 2;  // the width of a waking period
+  static int _wakesupWidthCPU_ = 4;  // the width of a wakesup period
   static int _activeWidthCPU_  = 6;  // the width of an active period in CPU display
 
+  static Color _color_blocked_       = Color.gray;
+  static Color _color_running_       = DARK_GREEN;
+  static Color _color_running_contd_ = DARK_GREEN;
+  static Color _color_waking_        = TOKIWA_COLORS[2][2];
+  static Color _color_wakesup_       = TOKIWA_COLORS[0][2];
+  static Color _color_unknown_       = Color.gray;
+  static Color _color_error_         = Color.magenta;
+
+  static Color _color_waking_arrow_  = _color_waking_.darker();
+
+  static int _width_blocked_       = _passiveWidth_;
+  static int _width_running_       = _activeWidth_;
+  static int _width_waking_        = _wakingWidth_;
+  static int _width_wakesup_       = _wakesupWidth_;
+  static int _width_unknown_       = _passiveWidth_;
+  static int _width_error_         = 2*_activeWidth_
+    ;
+  static int _widthCPU_blocked_       = _passiveWidthCPU_;
+  static int _widthCPU_running_       = _activeWidthCPU_;
+  static int _widthCPU_waking_        = _wakingWidthCPU_;
+  static int _widthCPU_wakesup_       = _wakesupWidthCPU_;
+  static int _widthCPU_unknown_       = _passiveWidthCPU_;
+  static int _widthCPU_error_         = 2*_activeWidthCPU_;
 
   /**
    * Thread states
    */
   static enum ThreadState
   {
-    blocked      (Color.gray,    _passiveWidth_  , _passiveWidthCPU_   , "BLOCKED"),
-    running      (DARK_GREEN,    _activeWidth_   , _activeWidthCPU_    , "RUNNING"),
-    running_contd(DARK_GREEN,    _activeWidth_   , _activeWidthCPU_    , "RUNNING"),  // like `running`, but previous state was also `running`
-    ready        (Color.blue,    2*_passiveWidth_, 2*_passiveWidthCPU_ , "READY"  ),
-    unknown      (Color.gray,    _passiveWidth_  , _passiveWidthCPU_   , "UNKNOWN"),
-    error        (Color.magenta, 2*_activeWidth_ , 2*_activeWidthCPU_  , "ERROR"  );
+    blocked      (_color_blocked_, _width_blocked_, _widthCPU_blocked_, "BLOCKED"),
+    running      (_color_running_, _width_running_, _widthCPU_running_, "RUNNING"),
+    running_contd(_color_running_, _width_running_, _widthCPU_running_, "RUNNING"),  // like `running`, but previous state was also `running`
+    waking       (_color_waking_ , _width_waking_ , _widthCPU_waking_ , "WAKING" ),
+    wakesup      (_color_wakesup_, _width_wakesup_, _widthCPU_wakesup_, "READY"  ),
+    unknown      (_color_unknown_, _width_unknown_, _widthCPU_unknown_, "UNKNOWN"),
+    error        (_color_error_  , _width_error_  , _widthCPU_error_  , "ERROR"  );
 
     Color _color;     // color this state is drawn in
     int   _width;     // width of the thread line in this state
@@ -1112,7 +1166,8 @@ class SchedulingPanorama extends Panorama
                                         // maybe wakup-tracepoints are lost?
                                         //
         case running_contd -> running;
-        case ready         -> blocked;
+        case waking        -> blocked;
+        case wakesup       -> blocked;
         case unknown       -> error;
         case error         -> error;
         };
@@ -1143,7 +1198,8 @@ class SchedulingPanorama extends Panorama
     return
       resource.stopsRunning(at)                                   ? ThreadState.blocked :
       resource.startsRunning(at) || resource.continuesRunning(at) ? ThreadState.running :
-      resource.wakesup(at)                                        ? ThreadState.ready
+      resource.waking(at)                                         ? ThreadState.waking  :
+      resource.wakesup(at)                                        ? ThreadState.wakesup
                                                                   : ThreadState.error;
   }
 
@@ -1160,12 +1216,16 @@ class SchedulingPanorama extends Panorama
    * @param r the visible rectangle to draw to
    *
    * @param cpu true when drawing CPU states, false for threads
+   *
+   * @param toDo List of drawing jobs to be performed after all threads were
+   * drawn (since these have to be drawn over threads that are further down).
    */
   void showRunning(Graphics g,
                    ActionSubSet resource,
                    int y,
                    Rectangle r,
-                   boolean cpu)
+                   boolean cpu,
+                   ArrayList<Runnable> toDo)
   {
     int blurredUpToX = -1;
     int from_a = actionAt(resource, r.x);
@@ -1195,6 +1255,24 @@ class SchedulingPanorama extends Panorama
           {
             g.setColor(state._color);
             _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
+
+            // draw arrow from thread that wakes up this thread to this thread:
+            if (state == ThreadState.waking && !cpu)
+              {
+                var t0 = _data.oldThreadAt(resource.at(a));
+                if (t0 != null)
+                  {
+                    var t0i = threadIndex(t0);
+                    if (t0i >= 0)
+                      {
+                        var y0 = threadY(t0i);
+                        var s = _zoom.zoom(0.5 * _activeWidth_                            + 1);
+                        var e = _zoom.zoom(0.5 * (cpu ? _wakingWidthCPU_ : _wakingWidth_) + 1);
+                        if (y0 <= y) {                g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 + s), (int) (y - e));
+                        } else       { toDo.add(()->{ g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 - s), (int) (y + e)); } ); }
+                      }
+                  }
+              }
           }
         else if (blurredUpToX < xr)
           {
@@ -1223,7 +1301,7 @@ class SchedulingPanorama extends Panorama
       {
         if (_data.entryCount() > 0)
           {
-
+            var toDo = new ArrayList<Runnable>();
             var pr = SchedulingPanorama.this.getVisibleRect();
             if (numCpus() > 0 &&
                 cpusY()                               <  r.y+r.height &&
@@ -1246,7 +1324,7 @@ class SchedulingPanorama extends Panorama
 
                         var cpu = _data.cpu(i);
                         var y = cpuY(i);
-                        showRunning(g, cpu, y, r, true);
+                        showRunning(g, cpu, y, r, true, toDo);
                       }
                   }
                 g.setColor(Color.white);
@@ -1301,7 +1379,7 @@ class SchedulingPanorama extends Panorama
                         nameShownAt = nanos_to_posx(nameShownAtNS);
                       }
 
-                    showRunning(g, t, y, r, false);
+                    showRunning(g, t, y, r, false, toDo);
 
                     /* disabled code to show the CPU we are running on. Better make this part of a tooltip!
                        cpu = t.cpu_id(a);
@@ -1325,6 +1403,12 @@ class SchedulingPanorama extends Panorama
                     continue;
                   }
               }
+
+            for (var run : toDo)
+              {
+                run.run();
+              }
+
             var from_gap = Math.max(0,gapAt(r.x)-1);
             var to_gap   = Math.min(_data._gaps.size()-1, gapAt(r.x+r.width)+1);
             for(var a = from_gap; a <= to_gap; a++)

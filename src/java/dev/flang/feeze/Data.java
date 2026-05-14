@@ -150,6 +150,7 @@ class Data extends ANY implements Offsets
         switch (kind(at))
           {
           case ENTRY_KIND_SCHED_SWITCH:
+          case ENTRY_KIND_SCHED_WAKING:
           case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
           default: break;
           }
@@ -165,6 +166,7 @@ class Data extends ANY implements Offsets
         switch (kind(at))
           {
           case ENTRY_KIND_SCHED_SWITCH:
+          case ENTRY_KIND_SCHED_WAKING:
           case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
           default: break;
           }
@@ -181,6 +183,7 @@ class Data extends ANY implements Offsets
     switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH:
+      case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
         return Feeze.ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
@@ -194,6 +197,7 @@ class Data extends ANY implements Offsets
   long nanosAtOrBefore(int at)
   {
     while (kind(at) != ENTRY_KIND_SCHED_SWITCH &&
+           kind(at) != ENTRY_KIND_SCHED_WAKING &&
            kind(at) != ENTRY_KIND_SCHED_WAKEUP &&
            at > 0)
       {
@@ -216,6 +220,7 @@ class Data extends ANY implements Offsets
     switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH:
+      case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
         var c = Feeze.count(at);
         _hasCount.set(c);
@@ -234,6 +239,7 @@ class Data extends ANY implements Offsets
     return switch (kind(at))
       {
       case ENTRY_KIND_SCHED_SWITCH,
+           ENTRY_KIND_SCHED_WAKING,
            ENTRY_KIND_SCHED_WAKEUP -> at>0 && count(at)>0 && hasCount(count(at)) && !hasCount(count(at)-1);
       default -> false;
       };
@@ -346,6 +352,7 @@ class Data extends ANY implements Offsets
                     }
                   break;
                 }
+              case ENTRY_KIND_SCHED_WAKING:
               case ENTRY_KIND_SCHED_WAKEUP:
                 {
                   var ignore = count(names_processed);

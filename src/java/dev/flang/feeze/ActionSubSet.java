@@ -90,6 +90,7 @@ abstract class ActionSubSet extends ANY
   public abstract boolean startsRunning(int i);
   public abstract boolean continuesRunning(int i);
   public abstract boolean stopsRunning(int i);
+  public abstract boolean waking(int i);
   public abstract boolean wakesup(int i);
 
 }

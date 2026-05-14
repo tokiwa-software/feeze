@@ -33,8 +33,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #ifndef __FEEZE_RECORDER_COMMON_H
 #define __FEEZE_RECORDER_COMMON_H
 
-#define RB_EVENT_SCHED_SWITCH 13
-#define RB_EVENT_SCHED_WAKEUP 25
+#define RB_EVENT_SCHED_SWITCH  13
+#define RB_EVENT_SCHED_WAKEUP  25
+#define RB_EVENT_SCHED_WAKING  47
 
 
 /**
