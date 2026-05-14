@@ -274,17 +274,14 @@ class SchedulingPanorama extends Panorama
   @Override
   public String getToolTipText(MouseEvent event)
   {
-    String result = null;        // return null to suppress tool tip when outside of thread
-    var name = "+++ unknonw +++";
-    var state = "+++ unknown +++";
-    var cpu = "";
+    String name = null;        // return null to suppress tool tip when outside of thread
     var x = event.getX();
     var y = event.getY();
     var ti = threadAt(y);
-    var timens = posx_to_nanos(x);
-    var time = TimeAsString.getString(timens, 1);
     if (ti >= 0 && ti < numThreads() && y >= threadYTop(ti) && y < threadYBottom(ti))
       {
+        String state;
+        var cpu = "";
         var t = _threads.get(ti);
         var ai = actionAt(t, x);
         if (t instanceof CumulativeThread ct)
@@ -300,27 +297,18 @@ class SchedulingPanorama extends Panorama
           {
             var duration = "";
             name = t.toString(ai);
-            var tstate = ai < 0 ? ThreadState.unknown : stateAt(t, ai);
+            var tstate = ai < 0 ? ThreadState.error : stateAt(t, ai);
             if (ai == 0 && nanos_to_posx(_data.nanosAtSwitch(t.at(ai))) > x)
               { // For first action, if it is to the right of `x`, running / not running are swapped and we do not know the time
                 tstate = tstate.prev();
               }
             else
               {
-                if (!(t instanceof CumulativeThread))
-                  {
-                    if (tstate == ThreadState.running ||
-                        tstate == ThreadState.running_contd)
-                      {
-                        cpu = "ON CPU" + t.cpu_id(ai);
-                      }
-                    else if (tstate == ThreadState.ready)
-                      {
-                        cpu = "CAUSED by CPU" + t.cpu_id(ai);
-                      }
-                  }
+                cpu = tstate == ThreadState.running ||
+                      tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(ai) :
+                      tstate == ThreadState.ready         ? "CAUSED by CPU" + t.cpu_id(ai) : "";
                 if (ai+1 < t.numActions() &&
-                    stateAt(t, ai+1) != ThreadState.unknown    )
+                    stateAt(t, ai+1) != ThreadState.error    )
                   {
                     var delta = _data.nanosAtSwitch(t.at(ai+1)) - _data.nanosAtSwitch(t.at(ai));
                     var dt = TimeAsString.getString(delta, 1);
@@ -330,7 +318,8 @@ class SchedulingPanorama extends Panorama
             state = tstate._name + duration;
           }
 
-        result = name;
+        var timens = posx_to_nanos(x);
+        var time = TimeAsString.getString(timens, 1);
 
         _toolTip._nameLabel.setText(name); // "Thread at "+event.getX()+","+event.getY());
         _toolTip._stateLabel.setText(state);
@@ -339,7 +328,7 @@ class SchedulingPanorama extends Panorama
         _toolTip.revalidate();
         _toolTip.repaint();
       }
-    return result;
+    return name;
   }
 
   /*---------------------------  constructors  --------------------------*/
@@ -1084,11 +1073,12 @@ class SchedulingPanorama extends Panorama
    */
   static enum ThreadState
   {
-    blocked      (Color.gray,    _passiveWidth_ , _passiveWidthCPU_ , "BLOCKED"),
-    running      (DARK_GREEN,    _activeWidth_  , _activeWidthCPU_  , "RUNNING"),
-    running_contd(DARK_GREEN,    _activeWidth_  , _activeWidthCPU_  , "RUNNING"),  // like `running`, but previous state was also `running`
-    ready        (Color.blue,    _activeWidth_/2, _activeWidthCPU_/2, "READY"  ),
-    unknown      (Color.magenta, 2*_activeWidth_, 2*_activeWidthCPU_, "UNKNOWN");
+    blocked      (Color.gray,    _passiveWidth_  , _passiveWidthCPU_   , "BLOCKED"),
+    running      (DARK_GREEN,    _activeWidth_   , _activeWidthCPU_    , "RUNNING"),
+    running_contd(DARK_GREEN,    _activeWidth_   , _activeWidthCPU_    , "RUNNING"),  // like `running`, but previous state was also `running`
+    ready        (Color.blue,    2*_passiveWidth_, 2*_passiveWidthCPU_ , "READY"  ),
+    unknown      (Color.gray,    _passiveWidth_  , _passiveWidthCPU_   , "UNKNOWN"),
+    error        (Color.magenta, 2*_activeWidth_ , 2*_activeWidthCPU_  , "ERROR"  );
 
     Color _color;     // color this state is drawn in
     int   _width;     // width of the thread line in this state
@@ -1116,10 +1106,15 @@ class SchedulingPanorama extends Panorama
       return switch (ThreadState.this)
         {
         case blocked       -> running;
-        case running       -> ready;
+        case running       -> unknown;  // ready seems to make sense here, but
+                                        // sometimes this leads to very long
+                                        // ready at the beginning of recording,
+                                        // maybe wakup-tracepoints are lost?
+                                        //
         case running_contd -> running;
         case ready         -> blocked;
-        case unknown       -> unknown;
+        case unknown       -> error;
+        case error         -> error;
         };
     }
 
@@ -1149,7 +1144,7 @@ class SchedulingPanorama extends Panorama
       resource.stopsRunning(at)                                   ? ThreadState.blocked :
       resource.startsRunning(at) || resource.continuesRunning(at) ? ThreadState.running :
       resource.wakesup(at)                                        ? ThreadState.ready
-                                                                  : ThreadState.unknown;
+                                                                  : ThreadState.error;
   }
 
 
