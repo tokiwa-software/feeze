@@ -56,6 +56,12 @@ struct {
  */
 uint64_t count = 0;
 
+
+/**
+ * sched_switch is a thread switch on a given CPUs. This typically does not
+ * directly switch between two arbitray threads, but seems to always switch
+ * between thead with tid=0, the swapper, and some real thread.
+ */
 SEC("tracepoint/sched/sched_switch")
 int on_task_switch(struct trace_event_raw_sched_switch *ctx)
 {
@@ -120,11 +126,14 @@ int on_task_switch(struct trace_event_raw_sched_switch *ctx)
   return 0;
 }
 
-
-SEC("tracepoint/sched/sched_wakeup")
-int on_task_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
+/**
+ * waking is if one thread changes a blocked thread into ready. This, however, does not add
+ * that thread to any CPUs runqueue yet.
+ */
+SEC("tracepoint/sched/sched_waking")
+int on_task_waking(struct trace_event_raw_sched_wakeup_template *ctx)
 {
-  int kind = RB_EVENT_SCHED_WAKEUP;
+  int kind = RB_EVENT_SCHED_WAKING;
   struct event *e;
   int zero = 0;
   e = bpf_map_lookup_elem(&heap, &zero);
@@ -177,10 +186,15 @@ int on_task_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
   return 0;
 }
 
-SEC("tracepoint/sched/sched_waking")
-int on_task_waking(struct trace_event_raw_sched_wakeup_template *ctx)
+
+/**
+ * wakeup adds a thread to a CPUs runqueue.  This typcialls happens after `sched_waking`, at this point
+ * we no longer know what other thread caused us to wake up.
+ */
+SEC("tracepoint/sched/sched_wakeup")
+int on_task_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
 {
-  int kind = RB_EVENT_SCHED_WAKING;
+  int kind = RB_EVENT_SCHED_WAKEUP;
   struct event *e;
   int zero = 0;
   e = bpf_map_lookup_elem(&heap, &zero);
