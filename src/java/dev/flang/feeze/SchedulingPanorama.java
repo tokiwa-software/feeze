@@ -179,6 +179,18 @@ class SchedulingPanorama extends Panorama
                                            { TOKIWA_COLORS_PALE[2][0], TOKIWA_COLORS_PALE[4][0], TOKIWA_COLORS_PALE[0][0] },   // purple
                                          };
 
+
+  static final Color[] USER_EVENT_COLS = new Color[TOKIWA_COLORS_PALE.length*TOKIWA_COLORS_PALE[0].length];
+  {
+    for (var col = 0; col < USER_EVENT_COLS.length; col++)
+      {
+        var i = col % TOKIWA_COLORS_PALE.length;
+        var j = col / TOKIWA_COLORS_PALE.length % TOKIWA_COLORS_PALE[0].length;
+        USER_EVENT_COLS[col] = TOKIWA_COLORS_PALE[i][j];
+      }
+  }
+
+
   /*------------------------------  fields  -----------------------------*/
 
 
@@ -1315,24 +1327,25 @@ class SchedulingPanorama extends Panorama
                 var w = _zoom.stringWidth(g, msg);
                 g.setFont(_zoom.standardFont());
                 var fm = g.getFontMetrics();
-                var h = fm.getHeight() + fm.getDescent();
+                var h = fm.getAscent() + fm.getDescent();
                 _zoom.drawFilledRect(g, Color.black,
-                                     TOKIWA_COLORS[col & 3][3],
+                                     USER_EVENT_COLS[col % USER_EVENT_COLS.length],
                                      1,
-                                     xl-w/2 - zoom(2), y - zoom(8) - h,
-                                     w + zoom(4), h + zoom(4));
-                g.setColor(Color.black);
-                var ybottom = y - zoom(6);
+                                     xl-w/2 - zoom(2), (int) (y - zoom(4.5) - h),
+                                     w + zoom(4), h + zoom(1));
+                var ybottom = y - zoom(4);
                 var ybase = ybottom - fm.getDescent();
                 var yasc  = ybase - fm.getAscent();
                 var ytop = ybase - fm.getHeight();
                 if (false) // set to true to show font metrics:
                   {
+                    g.setColor(Color.pink);
                     g.drawLine(xl-w/2, ybottom, xl+20, ybottom);
                     g.drawLine(xl-w/2, ybase, xl+16, ybase);
                     g.drawLine(xl-w/2, yasc, xl+12, yasc);
                     g.drawLine(xl-w/2, ytop, xl+8, ytop);
                   }
+                g.setColor(Color.black);
                 _zoom.drawString(g, msg, xl - w/2,  ybase);
                 lastUserEvent = xl;
               }
