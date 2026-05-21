@@ -46,7 +46,7 @@ LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-BPFTOOL ?= /usr/lib/linux-tools/6.8.0-106-generic/bpftool
+BPFTOOL ?= /usr/lib/linux-tools-6.8.0-117/bpftool
 
 JAVA_SOURCES := $(shell find $(FEEZE_SRC_JAVA) -name "*.java")
 JAVA_MAIN := Feeze
@@ -105,7 +105,7 @@ $(BUILD_OBJ)/$(C_MAIN).bpf.o: src/bpf/$(C_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINUX_H)
 $(BUILD_INCLUDE)/%.skel.h: $(BUILD_DIR)/obj/%.bpf.o
 	mkdir -p $(@D)
 	@if [ ! -f "$(BPFTOOL)" ]; then \
-	  echo "*** error: bpftool not found, please set env var BPFTOOL" >&2; \
+	  echo "*** error: bpftool '$(BPFTOOL)' not found, please set env var BPFTOOL" >&2; \
 	  exit 1; \
 	fi
 	$(BPFTOOL) gen skeleton $< > $@
