@@ -77,7 +77,8 @@ class SystemThread extends FeezeThread
   {
     super.addAction(at);
     var u = user();
-    if (u != null) // NYI: Check why it sometimes happened that this is null
+    if (u != null && // NYI: Check why it sometimes happened that this is null
+        _data.kind(at) == ENTRY_KIND_SCHED_SWITCH)
       {
         u.cumulative().addAction(at);
       }
