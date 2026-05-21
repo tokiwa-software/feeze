@@ -40,7 +40,7 @@ import dev.flang.util.ANY;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-abstract class ActionSubSet extends ANY
+abstract class ActionSubSet extends ANY implements Offsets
 {
 
   final Data _data;
@@ -92,5 +92,65 @@ abstract class ActionSubSet extends ANY
   public abstract boolean stopsRunning(int i);
   public abstract boolean waking(int i);
   public abstract boolean wakesup(int i);
+
+
+  public boolean isStateChange(int i)
+  {
+    var a = at(i);
+    return
+      switch (_data.kind(a))
+        {
+        case ENTRY_KIND_SCHED_SWITCH,
+          ENTRY_KIND_SCHED_WAKING,
+          ENTRY_KIND_SCHED_WAKEUP -> true;
+        default -> false;
+        };
+  }
+
+
+  public int nextStateChange(int i)
+  {
+    var res = Math.min(numActions(), i+1);
+    while (res < numActions()  &&
+           !isStateChange(res)    )
+      {
+        res++;
+      }
+    return res;
+  }
+
+
+  public long nanosAt(int i)
+  {
+    return i >= numActions() ? _data.nanosMax()
+                             : _data.nanosAtSwitch(at(i)) -_data.nanosMin();
+  }
+
+  public boolean isUserEvent(int i)
+  {
+    var a = at(i);
+    return
+      switch (_data.kind(a))
+        {
+        case ENTRY_KIND_USER_EVENT -> true;
+        default -> false;
+        };
+  }
+
+  public int userEventColor(int i)
+  {
+    if (PRECONDITIONS) require
+      (isUserEvent(i));
+
+    return _data.userEventColor(at(i));
+  }
+
+  public String userEventMsg(int i)
+  {
+    if (PRECONDITIONS) require
+      (isUserEvent(i));
+
+    return _data.userEventMsg(at(i));
+  }
 
 }

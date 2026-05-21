@@ -45,6 +45,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #include <pthread.h>
 #include <sys/types.h>
 #include <assert.h>
+#include <sys/sdt.h>
 
 #include "feeze_recorder_common.h"
 #include "feeze_recorder.skel.h"
@@ -87,6 +88,7 @@ struct  shared_buffer
 #define ENTRY_KIND_USER          2
 #define ENTRY_KIND_PROCESS       3
 #define ENTRY_KIND_THREAD        4
+#define ENTRY_KIND_USER_EVENT    7
 
 struct user_payload
 {
@@ -129,6 +131,15 @@ struct sched_wakeup_payload
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
+struct user_event
+{
+  pid_t tid;
+  uint32_t col;
+  char msg[32];
+  uint64_t ns;
+  uint32_t cpu_id;
+  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
+};
 
 struct entry
 {
@@ -143,6 +154,7 @@ struct entry
     struct thread_payload       t;
     struct sched_switch_payload ss;
     struct sched_wakeup_payload sw;
+    struct user_event           ue;
   } payload;
 };
 
@@ -194,8 +206,10 @@ int num_users = 0;
 
 struct record_config
 {
+  const char* lib_fuzion;
   size_t shmem_size;
   const char* shmem_file_name;
+  char *shared_lib_name;
 };
 
 struct record_config *config = NULL;
@@ -583,6 +597,23 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           en.payload.sw.count = e->count;
           post_entry(&en);
         }
+      else if (e->event_kind == RB_EVENT_FUZION_USER)
+        {
+          char str[2*16+1];
+          memcpy(&(str[0*16]), &e->comm    [0], 16);
+          memcpy(&(str[1*16]), &e->old_name[0], 16);
+          str[2*16] = 0;
+          add_thread(e->new_pid, "unknown"    );
+          struct entry en;
+          en.kind = ENTRY_KIND_USER_EVENT;
+          en.payload.ue.tid = e->new_pid;
+          en.payload.ue.col = e->new_pri;
+          memcpy(&en.payload.ue.msg, &str, 32);
+          en.payload.ue.ns = e->ns;
+          en.payload.ue.count = e->count;
+          en.payload.ue.cpu_id = e->cpu_id;
+          post_entry(&en);
+        }
     }
   return 0;
 }
@@ -609,7 +640,7 @@ void *t12start(void *arg)
       uint64_t n = c & -2;
       if ((n & 65535) == 0) // after 131k thread switches, sleep for 20ms to give tbe system some time to breathe...
         {
-          struct timespec duration = { 0, 200000000 }; // 20ms
+          struct timespec duration = { 0, 200000000 }; // 200ms
           nanosleep(&duration, 0);
         }
       pthread_cond_signal(&cond);
@@ -618,6 +649,32 @@ void *t12start(void *arg)
           pthread_cond_wait(&cond, &mutex);
         }
       pthread_mutex_unlock(&mutex);
+    }
+  return NULL;
+}
+
+struct s
+{
+  union
+  {
+    char str[16];
+    uint64_t l[2];
+  } u;
+};
+
+void *thread_dtrace_test(void *arg)
+{
+  int thrid = arg==NULL ? 0 : 1;
+  int threadId = pthread_self();
+  while (!finishing)
+    {
+      struct timespec duration = { 3, 200000000 }; // 3.200ms
+      nanosleep(&duration, 0);
+      DTRACE_PROBE(a,b);
+      struct s u;
+      strcpy(u.u.str, "drei-san-three");
+      DTRACE_PROBE4(a,d,42,"2.0",u.u.l[0],u.u.l[1]);
+      DTRACE_PROBE3(a,c,42,"2.0","u.u.l[0],u.u.l[1]");
     }
   return NULL;
 }
@@ -639,6 +696,12 @@ void *record(void *arg)
   if (entry_size != ENTRY_SIZE)
     {
       fprintf(stderr, "sizeof(entry) should be %d, but is %lu\n",ENTRY_SIZE, sizeof(entry));
+      exit(1);
+    }
+  entry* en = NULL;
+  if (&en->payload.ue.count != &en->payload.sw.count)
+    {
+      fprintf(stderr,"union in trouble %p vs %p", &en->payload.ue.count, &en->payload.sw.count);
       exit(1);
     }
 
@@ -760,6 +823,18 @@ void *record(void *arg)
       pthread_create(&t2, NULL, t12start, "1" );  pthread_setname_np(t2,"BBBBB");
     }
 
+  if (false)
+    {
+      pthread_t t1 = {};
+      pthread_create(&t1, NULL, thread_dtrace_test, NULL);  pthread_setname_np(t1,"ABCDEF");
+    }
+
+  if (config->lib_fuzion != NULL)
+    {
+      skel->links.handle_fuzion_probe = bpf_program__attach_usdt(skel->progs.handle_fuzion_probe, -1 /* env.pid */,
+                                                                 config->lib_fuzion, "fuzion", "probe", NULL);
+    }
+
   while (!finishing)
     {
       err = ring_buffer__poll(rb, 0 /* timeout, ms */);
@@ -855,6 +930,52 @@ bool str_endsWith(char *s, char *p)
 #define N 4096
 char name[N];
 
+
+/**
+ * If l<max_l, copy l chars from src to dst and add a terminating `0`.
+ *
+ * @return l<max_l
+ */
+bool copy_string_if_it_fits(char *dst, char *src, int l, int max_l)
+{
+  if (l<max_l)
+    {
+      strncpy(dst, src, l);
+      dst[l] = 0;
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+
+/**
+ * Check if `s` has the form `"<desired> '<value>'\n"`. If so, copy the
+ * `<value>` part to `dst`.
+ *
+ * @return true iff `s` has the desired form and the `<value>` part fits into
+ * `max_l` including the terminating 0.
+ *
+ */
+bool get_option(char *s, char *desired, char* dst, int max_l)
+{
+  int dl = strlen(desired);
+  if (str_startsWith(s, desired) &&
+      str_startsWith(s + dl, " '") &&
+      str_endsWith(s, "'\n") &&
+      copy_string_if_it_fits(dst, s+dl+2, strlen(s)-dl-2-2, max_l))
+    {
+      return true;
+    }
+  else
+    {
+      return false;
+    }
+}
+
+#define LIB_FUZION "/lib/libfuzion_rt.so"
+
 /**
  * main function
  */
@@ -865,6 +986,7 @@ int main(int argc, char**args)
   setbuf(stdout, NULL);
   printf("feeze recorder started, waiting for commands...\n"); fflush(stdout);
   size_t shmem_size = SHARED_MEM_SIZE;
+  char *lib_fuzion = NULL;
   while (!exiting)
     {
       printf("Waiting for commands...\n"); fflush(stdout);
@@ -880,10 +1002,8 @@ int main(int argc, char**args)
           pthread_t rt = {};
           pthread_create(&rt, NULL, record, name);  pthread_setname_np(rt,"feeze_record");
         }
-      else if (str_startsWith(s, "SHMEM_SIZE '") &&
-               str_endsWith  (s, "'\n"    )    )
+      else if (get_option(s, "SHMEM_SIZE", name, N))
         {
-          strncpy(name, s+12, strlen(s)-12-2);
           size_t l = atol(name);
           if ((l & 4095) != 0)  // page aligned
             {
@@ -902,6 +1022,27 @@ int main(int argc, char**args)
               shmem_size = l;
             }
         }
+      else if (get_option(s, "FUZION_HOME", name, N))
+        {
+          int l1 = strlen(name);
+          int l2 = strlen(LIB_FUZION);
+          int l = l1 + l2 + 1;
+          lib_fuzion = malloc(l);
+          if (lib_fuzion == NULL)
+            {
+              fprintf(stderr, "*** alloc failed for %d bytes\n", l);
+            }
+          else if (copy_string_if_it_fits( lib_fuzion,     name,       l1, l   ) &&
+                   copy_string_if_it_fits(&lib_fuzion[l1], LIB_FUZION, l2, l-l1)    )
+            {
+              // ok
+            }
+          else
+            {
+              assert(false);  // should not happen if calculation for `l` is correct
+              lib_fuzion = NULL;
+            }
+        }
       else if (str_startsWith(s, "START '") &&
                str_endsWith  (s, "'\n"    )    )
         {
@@ -915,6 +1056,7 @@ int main(int argc, char**args)
             }
           else
             {
+              conf->lib_fuzion = lib_fuzion;
               conf->shmem_file_name = name;
               conf->shmem_size = shmem_size;
               pthread_create(&rt, NULL, record, conf);

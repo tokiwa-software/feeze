@@ -82,7 +82,7 @@ class SystemThread extends FeezeThread
         u.cumulative().addAction(at);
       }
     _swapper = _swapper ||
-      _p._pid == -1 && nameFrom(at).startsWith("swapper/");
+      _p._pid == -1 && nameFrom(numActions()-1).startsWith("swapper/");
   }
 
   @Override
@@ -98,18 +98,23 @@ class SystemThread extends FeezeThread
   }
 
 
-  private String nameFrom(int at)
+  private String nameFrom(int ai)
   {
-    String n;
-    if (Feeze.new_pid(at) == _tid)
+    while (ai >= 0)
       {
-        n = _data.new_name(at);
+        var at = _at[ai];
+        switch (_data.kind(at))
+          {
+          case ENTRY_KIND_SCHED_SWITCH -> { return Feeze.new_pid(at) == _tid ? _data.new_name(at)
+                                                                             : _data.old_name(at);
+                                          }
+          case ENTRY_KIND_SCHED_WAKING -> { return _data.new_name(at); }
+          case ENTRY_KIND_SCHED_WAKEUP -> { return _data.new_name(at); }
+          default -> {}
+          }
+        ai--;
       }
-    else
-      {
-        n = _data.old_name(at);
-      }
-    return n;
+    return _name;
   }
 
 
@@ -122,7 +127,7 @@ class SystemThread extends FeezeThread
 
     byte[] bs = new byte[16];
     var at = _at[ai];
-    String n = nameFrom(at);
+    String n = nameFrom(ai);
     if (isProcess() && !n.equals(_p._name))
       {
         n = n + " (" + _p._name + ")";

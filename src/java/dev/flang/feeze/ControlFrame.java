@@ -75,6 +75,7 @@ public class ControlFrame extends JFrame
 
   static int INITIAL_SHARED_MEM_SIZE = 64*1024*1024;
 
+  JTextField _fuzionHomeDir           ;
   JTextField _sharedMemName;
   JTextField _sharedMemSize;
   JProgressBar _usedMemBar;
@@ -141,11 +142,17 @@ public class ControlFrame extends JFrame
 
     javax.swing.SwingUtilities.invokeLater(()->
       {
-        var shMemNameLabel = new JLabel("Shared Memory File:");
+        var fzHomeDirLabel = new JLabel("Fuziom home directory:");
+        _fuzionHomeDir = new JTextField(System.getenv("FUZION_HOME") instanceof String str ? str :
+                                        System.getenv("HOME")        instanceof String str ? str + "/fuzion/work/build"  // NYI: hard-coded for fridi's setup...
+                                                                                           : "");
+        _fuzionHomeDir.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+
+        var shMemNameLabel = new JLabel("Shared memory file:");
         _sharedMemName = new JTextField(Feeze.SHARED_MEM_NAME);
         _sharedMemName.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
 
-        var shMemSizeLabel = new JLabel("Shared Memory Size (KB/MB):");
+        var shMemSizeLabel = new JLabel("Shared mmory size (KB/MB):");
         _sharedMemSize = new JTextField(""+(INITIAL_SHARED_MEM_SIZE/1024/1024)+"MB");
         _sharedMemSize.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
 
@@ -264,10 +271,12 @@ public class ControlFrame extends JFrame
           (layout.createParallelGroup(GroupLayout.Alignment.LEADING)
            .addGroup(layout.createSequentialGroup()
                      .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                               .addComponent(fzHomeDirLabel)
                                .addComponent(shMemNameLabel)
                                .addComponent(shMemSizeLabel)
                                .addComponent(usedMemLabel  ))
                      .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                               .addComponent(_fuzionHomeDir)
                                .addComponent(_sharedMemName)
                                .addComponent(_sharedMemSize)
                                .addComponent(_usedMemBar   ))
@@ -282,6 +291,9 @@ public class ControlFrame extends JFrame
           (layout.createSequentialGroup()
            .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
                      .addGroup(layout.createSequentialGroup()
+                               .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                         .addComponent(fzHomeDirLabel)
+                                         .addComponent(_fuzionHomeDir))
                                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
                                          .addComponent(shMemNameLabel)
                                          .addComponent(_sharedMemName))

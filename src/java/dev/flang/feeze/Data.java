@@ -185,6 +185,7 @@ class Data extends ANY implements Offsets
       case ENTRY_KIND_SCHED_SWITCH:
       case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
+      case ENTRY_KIND_USER_EVENT  :
         return Feeze.ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
       }
@@ -222,6 +223,7 @@ class Data extends ANY implements Offsets
       case ENTRY_KIND_SCHED_SWITCH:
       case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
+      case ENTRY_KIND_USER_EVENT:
         var c = Feeze.count(at);
         _hasCount.set(c);
         return c;
@@ -373,6 +375,16 @@ class Data extends ANY implements Offsets
                     }
                   break;
                 }
+              case ENTRY_KIND_USER_EVENT:
+                {
+                  var ignore = count(names_processed);
+                  var t = userEventThread(names_processed);
+                  if (t != null)
+                    {
+                      t.addAction(names_processed);
+                    }
+                  break;
+                }
               default:
                 {
                   System.err.println("*** unknown entry kind "+kind(names_processed)+" for entry #"+names_processed);
@@ -407,12 +419,29 @@ class Data extends ANY implements Offsets
       }
   }
 
+  FeezeThread userEventThread(int at)
+  {
+    return _threadsMap.get(_b.getInt(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_TID));
+  }
+
+
   String new_name(int at)
   {
+    if (PRECONDITIONS) require
+      ( switch (kind(at))
+        {
+        case ENTRY_KIND_SCHED_SWITCH, ENTRY_KIND_SCHED_WAKING, ENTRY_KIND_SCHED_WAKEUP -> true;
+        default -> false;
+        }
+        );
+
     return getName(at, ENTRY_SS_NEW_NAME_OFFSET, 16);
   }
   String old_name(int at)
   {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
     return getName(at, ENTRY_SS_OLD_NAME_OFFSET, 16);
   }
 
@@ -428,6 +457,24 @@ class Data extends ANY implements Offsets
       (i < numCpus());
 
     return _cpus.get(i);
+  }
+
+
+  int userEventColor(int at)
+  {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_USER_EVENT);
+
+    return _b.get(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_COLOR) & 0xff;
+  }
+
+
+  String userEventMsg(int at)
+  {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_USER_EVENT);
+
+    return getName(at, ENTRY_UE_MSG, ENTRY_UE_MSG_SIZE);
   }
 
 

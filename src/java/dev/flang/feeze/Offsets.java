@@ -63,6 +63,14 @@ public interface Offsets
   public static int ENTRY_T_NAME_OFFSET      = 0x10;
   public static int ENTRY_T_NAME_LENGTH      = 0x20;
 
+  public static int ENTRY_UE_TID             = 0x08;
+  public static int ENTRY_UE_COLOR           = 0x0c;
+  public static int ENTRY_UE_MSG             = 0x10;
+  public static int ENTRY_UE_MSG_SIZE                = 0x20;
+  public static int ENTRY_UE_NS_OFFSET       = 0x30;
+  public static int ENTRY_UE_CPU_ID_OFFSET   = 0x38;
+  public static int ENTRY_UE_COUNT_OFFSET    = 0x3c;
+
   public static int ENTRY_SIZE            = 0x40;
 
   public static int ENTRY_KIND_UNUSED        = 0;
@@ -72,4 +80,5 @@ public interface Offsets
   public static int ENTRY_KIND_USER          = 2;
   public static int ENTRY_KIND_PROCESS       = 3;
   public static int ENTRY_KIND_THREAD        = 4;
+  public static int ENTRY_KIND_USER_EVENT    = 7;
 }

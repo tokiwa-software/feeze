@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import dev.flang.util.ANY;
 import dev.flang.util.Threads;
 
 /*---------------------------------------------------------------------*/
@@ -55,7 +56,7 @@ import dev.flang.util.Threads;
  *
  * @author Fridtjof Siebert (siebert@tokiwa.software)
  */
-public class Feeze implements Offsets
+public class Feeze extends ANY implements Offsets
 {
 
 
@@ -172,6 +173,10 @@ public class Feeze implements Offsets
 
   static int new_pid(int at)
   {
+    if (PRECONDITIONS) require
+      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
+                           1 << ENTRY_KIND_SCHED_WAKING |
+                           1 << ENTRY_KIND_SCHED_WAKING  )) != 0);
     return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
   }
   static void new_name(int at, byte[] bs)

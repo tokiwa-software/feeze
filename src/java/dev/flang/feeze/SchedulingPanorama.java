@@ -972,9 +972,9 @@ class SchedulingPanorama extends Panorama
         var im = t.at(tim);   // index of action left  of r.x+rw
         var ir = t.at(tir);   // index of action right of r.x+rw
         f = 1;
-        if (il == im &&                      // no action within visible area
-            (index_to_posx(il) >= r.x   ||
-             _data.newThreadAt(il) != t && !(t instanceof CumulativeThread)  )  // and t is not running
+        if (il == im &&                           // no action within visible area
+            (index_to_posx(il) >= r.x ||
+             !stateAt(t, til)._isReadyOrRunning)  // and t is not running
             )
           {
             int xl = index_to_posx(il);
@@ -1126,28 +1126,30 @@ class SchedulingPanorama extends Panorama
    */
   static enum ThreadState
   {
-    blocked      (_color_blocked_, _width_blocked_, _widthCPU_blocked_, "BLOCKED"),
-    running      (_color_running_, _width_running_, _widthCPU_running_, "RUNNING"),
-    running_contd(_color_running_, _width_running_, _widthCPU_running_, "RUNNING"),  // like `running`, but previous state was also `running`
-    waking       (_color_waking_ , _width_waking_ , _widthCPU_waking_ , "WAKING" ),
-    wakesup      (_color_wakesup_, _width_wakesup_, _widthCPU_wakesup_, "READY"  ),
-    unknown      (_color_unknown_, _width_unknown_, _widthCPU_unknown_, "UNKNOWN"),
-    error        (_color_error_  , _width_error_  , _widthCPU_error_  , "ERROR"  );
+    blocked      (_color_blocked_, _width_blocked_, _widthCPU_blocked_, "BLOCKED", false),
+    running      (_color_running_, _width_running_, _widthCPU_running_, "RUNNING", true ),
+    running_contd(_color_running_, _width_running_, _widthCPU_running_, "RUNNING", true ),  // like `running`, but previous state was also `running`
+    waking       (_color_waking_ , _width_waking_ , _widthCPU_waking_ , "WAKING" , true ),
+    wakesup      (_color_wakesup_, _width_wakesup_, _widthCPU_wakesup_, "READY"  , true ),
+    unknown      (_color_unknown_, _width_unknown_, _widthCPU_unknown_, "UNKNOWN", false),
+    error        (_color_error_  , _width_error_  , _widthCPU_error_  , "ERROR"  , false);
 
-    Color _color;     // color this state is drawn in
-    int   _width;     // width of the thread line in this state
-    int   _widthCpu;  // width of the CPU line in this state
-    String _name;     // name of this state
+    final Color  _color;             // color this state is drawn in
+    final int    _width;             // width of the thread line in this state
+    final int    _widthCpu;          // width of the CPU line in this state
+    final String _name;              // name of this state
+    final boolean _isReadyOrRunning; // true if this state cannot be blended out
 
     /**
      *  Constructor for given _color/_width/_/widthCpu/_name.
      */
-    ThreadState(Color c, int w, int wcpu, String name)
+    ThreadState(Color c, int w, int wcpu, String name, boolean isReadOrRunning)
     {
       _color = c;
       _width = w;
       _widthCpu = wcpu;
       _name = name;
+      _isReadyOrRunning = isReadOrRunning;
     }
 
 
@@ -1191,11 +1193,16 @@ class SchedulingPanorama extends Panorama
    *
    * @param resource the CPU or thread to show
    *
-   * @param at the index of the revent
+   * @param at the index of the event
    */
   ThreadState stateAt(ActionSubSet resource, int at)
   {
+    while (at >= 0 && !resource.isStateChange(at))
+      {
+        at--;
+      }
     return
+      at < 0                                                      ? ThreadState.error   :
       resource.stopsRunning(at)                                   ? ThreadState.blocked :
       resource.startsRunning(at) || resource.continuesRunning(at) ? ThreadState.running :
       resource.waking(at)                                         ? ThreadState.waking  :
@@ -1229,56 +1236,106 @@ class SchedulingPanorama extends Panorama
   {
     int blurredUpToX = -1;
     int from_a = actionAt(resource, r.x);
+    while (!resource.isStateChange(from_a) && from_a>0)
+      {
+        from_a--;
+      }
     int to_a = actionAt(resource, r.x+r.width)+1;
     for (var a = from_a; a<to_a; a++)
       {
-        var state = stateAt(resource, a);
-        var nl = _data.nanosAtSwitch(resource.at(a))-_data.nanosMin();
-        var nr = (a+1 >= resource.numActions() ? _data.nanosMax()
-                                               : _data.nanosAtSwitch(resource.at(a+1))) -_data.nanosMin();
-
-        if (ANY.CHECKS) ANY.check
-          (nl <= nr);   // event times should be monotonic increasing
-
-        var xl = nanos_to_posx(nl);
-        var xr = nanos_to_posx(nr);
-        var nnr = (a+2 >= resource.numActions() ? _data.nanosMax()
-                                                : _data.nanosAtSwitch(resource.at(a+2))) -_data.nanosMin();
         if (a == 0)
           {
-            var p = state.prev();
-            g.setColor(p._color);
-            _zoom.drawHLine(g,p.width(cpu),nanos_to_posx(0),y,xl);
-          }
-
-        if (posx_to_nanos(xl+2) < nnr)
-          {
+            var state = resource.isStateChange(a) ? stateAt(resource, a).prev()
+                                                  : ThreadState.blocked;
+            var xl = nanos_to_posx(resource.nanosAt(a));
             g.setColor(state._color);
-            _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
+            _zoom.drawHLine(g, state.width(cpu), nanos_to_posx(0), y, xl);
+          }
+        if (resource.isStateChange(a))
+          {
+            var a1 = resource.nextStateChange(a);
+            var a2 = resource.nextStateChange(a1);
 
-            // draw arrow from thread that wakes up this thread to this thread:
-            if (state == ThreadState.waking && !cpu)
+            var nl  = resource.nanosAt(a);
+            var nr  = resource.nanosAt(a1);
+            var nnr = resource.nanosAt(a2);
+            if (ANY.CHECKS) ANY.check
+              (nl <= nr, nr <= nnr);   // event times should be monotonic increasing
+
+            var xl = nanos_to_posx(nl);
+            var xr = nanos_to_posx(nr);
+
+            if (posx_to_nanos(xl+2) < nnr)
               {
-                var t0 = _data.oldThreadAt(resource.at(a));
-                if (t0 != null)
+                var state = stateAt(resource, a);
+                g.setColor(state._color);
+                _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
+
+                // draw arrow from thread that wakes up this thread to this thread:
+                if (state == ThreadState.waking && !cpu)
                   {
-                    var t0i = threadIndex(t0);
-                    if (t0i >= 0)
+                    var t0 = _data.oldThreadAt(resource.at(a));
+                    if (t0 != null)
                       {
-                        var y0 = threadY(t0i);
-                        var s = _zoom.zoom(0.5 * _activeWidth_                            + 1);
-                        var e = _zoom.zoom(0.5 * (cpu ? _wakingWidthCPU_ : _wakingWidth_) + 1);
-                        if (y0 <= y) {                g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 + s), (int) (y - e));
-                        } else       { toDo.add(()->{ g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 - s), (int) (y + e)); } ); }
+                        var t0i = threadIndex(t0);
+                        if (t0i >= 0)
+                          {
+                            var y0 = threadY(t0i);
+                            var s = _zoom.zoom(0.5 * _activeWidth_                            + 1);
+                            var e = _zoom.zoom(0.5 * (cpu ? _wakingWidthCPU_ : _wakingWidth_) + 1);
+                            if (y0 <= y) {                g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 + s), (int) (y - e));
+                            } else       { toDo.add(()->{ g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 - s), (int) (y + e)); } ); }
+                          }
                       }
                   }
               }
+            else if (blurredUpToX < xr)
+              {
+                g.setColor(VERY_DARK_GREEN);
+                _zoom.drawHLine(g,cpu ? _activeWidthCPU_ : _activeWidth_,xl,y,xr-1);
+                blurredUpToX = xr;
+              }
           }
-        else if (blurredUpToX < xr)
+      }
+
+    var lastUserEvent = -1;  // do not draw several user events at the same x position
+    for (var a = from_a; a<to_a; a++)
+      {
+        if (resource.isUserEvent(a))
           {
-            g.setColor(VERY_DARK_GREEN);
-            _zoom.drawHLine(g,cpu ? _activeWidthCPU_ : _activeWidth_,xl,y,xr-1);
-            blurredUpToX = xr;
+            var nl = _data.nanosAtSwitch(resource.at(a))-_data.nanosMin();
+            var xl = nanos_to_posx(nl);
+
+            if (lastUserEvent < xl)
+              {
+                g.setColor(Color.black);
+                _zoom.drawVLine(g, 1, xl, y-_zoom.zoom(4), y);
+                var col = resource.userEventColor(a);
+                var msg = resource.userEventMsg(a);
+                var w = _zoom.stringWidth(g, msg);
+                g.setFont(_zoom.standardFont());
+                var fm = g.getFontMetrics();
+                var h = fm.getHeight() + fm.getDescent();
+                _zoom.drawFilledRect(g, Color.black,
+                                     TOKIWA_COLORS[col & 3][3],
+                                     1,
+                                     xl-w/2 - zoom(2), y - zoom(8) - h,
+                                     w + zoom(4), h + zoom(4));
+                g.setColor(Color.black);
+                var ybottom = y - zoom(6);
+                var ybase = ybottom - fm.getDescent();
+                var yasc  = ybase - fm.getAscent();
+                var ytop = ybase - fm.getHeight();
+                if (false) // set to true to show font metrics:
+                  {
+                    g.drawLine(xl-w/2, ybottom, xl+20, ybottom);
+                    g.drawLine(xl-w/2, ybase, xl+16, ybase);
+                    g.drawLine(xl-w/2, yasc, xl+12, yasc);
+                    g.drawLine(xl-w/2, ytop, xl+8, ytop);
+                  }
+                _zoom.drawString(g, msg, xl - w/2,  ybase);
+                lastUserEvent = xl;
+              }
           }
       }
   }

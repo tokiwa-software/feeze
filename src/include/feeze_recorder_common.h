@@ -36,6 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 #define RB_EVENT_SCHED_SWITCH  13
 #define RB_EVENT_SCHED_WAKEUP  25
 #define RB_EVENT_SCHED_WAKING  47
+#define RB_EVENT_FUZION_USER   67
 
 
 /**
