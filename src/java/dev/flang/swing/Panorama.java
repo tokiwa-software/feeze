@@ -218,9 +218,41 @@ public abstract class Panorama extends JPanel
 
 
   /**
+   * max of two
+   *
+   * @param a an int
+   *
+   * @param b an int
+   *
+   * @return result with {@code result>=a && result>=b && (result==a || result==b)}.
+   */
+  private int max(int a, int b)
+  {
+    return Math.max(a, b);
+  }
+
+
+  /**
    * max of three
    *
-   * @paraof three
+   * @param a an int
+   *
+   * @param b an int
+   *
+   * @param c an int
+   *
+   * @return result with {@code result>=a && result>=b && result>=c && (result==a || result==b || result==c)}.
+   */
+  private int max(int a, int b, int c)
+  {
+    return Math.max(a, Math.max(b, c));
+  }
+
+
+  /**
+   * max of four
+   *
+   * @param a an int
    *
    * @param b an int
    *
@@ -280,7 +312,7 @@ public abstract class Panorama extends JPanel
 
     // make frame large enough to cover r:
     var fH = (r.height - h) / 2;
-    _frameT = max(MIN_FRAME_HEIGHT, fh, posy   , fH);
+    _frameT = max(MIN_FRAME_HEIGHT, posy);
     _frameB = max(MIN_FRAME_HEIGHT, fh, fH-posy, fH);
 
     posy    -= _frameT;
