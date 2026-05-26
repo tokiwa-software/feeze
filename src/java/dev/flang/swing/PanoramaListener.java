@@ -80,7 +80,7 @@ class PanoramaListener
 
 
   /**
-   * While dragging: the original moust pos
+   * While dragging: the original mouse pos
    */
   private int _dragX, _dragY;
 
