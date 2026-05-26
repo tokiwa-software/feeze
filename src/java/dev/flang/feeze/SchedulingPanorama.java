@@ -364,6 +364,46 @@ class SchedulingPanorama extends Panorama
 
 
   /**
+   * Saturating addition. Will return Integer.MIN_VALUE/MAX_VALUE in case of
+   * overflow.
+   *
+   * @param a an integer
+   *
+   * @param b another integher
+   *
+   * @return a+b in case of no overflows, Integer.MIN_VALUE in case of
+   * underflow, Integer.MAX_VALUE in caes of overflow.
+   */
+  int add(int a, int b)
+  {
+    var res = a + b;
+    if      (res >= 0 && a < 0 && b < 0) { res = Integer.MIN_VALUE; }
+    else if (res <= 0 && a > 0 && b > 0) { res = Integer.MAX_VALUE; }
+    return res;
+  }
+
+
+  /**
+   * Saturating substraction. Will return Integer.MIN_VALUE/MAX_VALUE in case of
+   * overflow.
+   *
+   * @param a an integer
+   *
+   * @param b another integher
+   *
+   * @return a+b in case of no overflows, Integer.MIN_VALUE in case of
+   * underflow, Integer.MAX_VALUE in caes of overflow.
+   */
+  int sub(int a, int b)
+  {
+    var res = a - b;
+    if      (res >= 0 && a < 0 && b > 0) { res = Integer.MIN_VALUE; }
+    else if (res <= 0 && a > 0 && b < 0) { res = Integer.MAX_VALUE; }
+    return res;
+  }
+
+
+  /**
    * Number of pixels for 1ns.
    */
   double pixelsPerNano()
@@ -434,12 +474,12 @@ class SchedulingPanorama extends Panorama
   /**
    * Convert zoomed_x to translated_x (x coordinate taking left gap into account
    */
-  int  translate_x       (int zoomed_x       ) { return zoomed_x     + leftFrame();            }
+  int  translate_x       (int zoomed_x       ) { return add(zoomed_x     , leftFrame()); }
 
   /**
    * Convert translated_x to zoomed_x
    */
-  int  untranslate_x     (int translated_x   ) { return translated_x - leftFrame();            }
+  int  untranslate_x     (int translated_x   ) { return sub(translated_x , leftFrame()); }
 
 
   /**
