@@ -89,6 +89,7 @@ struct  shared_buffer
 #define ENTRY_KIND_PROCESS       3
 #define ENTRY_KIND_THREAD        4
 #define ENTRY_KIND_USER_EVENT    7
+#define ENTRY_KIND_THREAD_NAME   8
 
 struct user_payload
 {
@@ -105,16 +106,18 @@ struct thread_payload
 {
   pid_t tid;
   pid_t pid;
+};
+struct thread_name_payload
+{
+  uint32_t num;
+  uint32_t pad1;
   char name[32];
 };
 struct sched_switch_payload
 {
   pid_t old_tid;
-  //  int old_pri;
-  char	old_name[16 /* TASK_COMM_LEN */];
   pid_t new_tid;
-  //  int new_pri;
-  char	new_name[16 /* TASK_COMM_LEN */];
+  char pad[32];
   uint64_t ns;
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
@@ -122,11 +125,8 @@ struct sched_switch_payload
 struct sched_wakeup_payload
 {
   pid_t old_tid;
-  //  int old_pri;
-  char	old_name[16 /* TASK_COMM_LEN */];
   pid_t new_tid;
-  //  int new_pri;
-  char	new_name[16 /* TASK_COMM_LEN */];
+  char pad[32];
   uint64_t ns;
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
@@ -152,6 +152,7 @@ struct entry
     struct user_payload         u;
     struct process_payload      p;
     struct thread_payload       t;
+    struct thread_name_payload  tn;
     struct sched_switch_payload ss;
     struct sched_wakeup_payload sw;
     struct user_event           ue;
@@ -168,6 +169,7 @@ shared_buffer *shmem = MAP_FAILED;
 uint64_t eventcount = 0;
 
 #define MAX_NUM_THREADS (4096)
+#define MAX_THREAD_NAME_LENGTH (32)
 
 /* all the thread ids found so far */
 pid_t thread_tids[MAX_NUM_THREADS];
@@ -175,6 +177,8 @@ pid_t thread_tids[MAX_NUM_THREADS];
 /* all the thread pids corresponding to the thread ids found so far, i.e.,
    tids[i] is a thread of pids[i].  */
 pid_t thread_pids[MAX_NUM_THREADS];
+
+char thread_names[MAX_NUM_THREADS*MAX_THREAD_NAME_LENGTH];
 
 /**
  * Number of threads in thread_tids[]/thread_pids[] arrays.
@@ -260,10 +264,10 @@ void post_entry(struct entry *e)
       uint64_t n = eventcount; //  & ~((uint64_t) 0x3f);
       if (false && (n & (n-1))==0)
         {
-          printf("thread switch %lu: %d (%s) -> %d (%s) at %luns\n",
+          printf("thread switch %lu: %d -> %d at %luns\n",
                  eventcount,
-                 e->payload.ss.old_tid, e->payload.ss.old_name,
-                 e->payload.ss.new_tid, e->payload.ss.new_name,
+                 e->payload.ss.old_tid,
+                 e->payload.ss.new_tid,
                  e->payload.ss.ns);
         }
     }
@@ -515,17 +519,34 @@ void add_process(pid_t pid)
 }
 
 
+void add_thread_name(int num,
+                     char name[16])
+{
+  struct entry en;
+  memset(&en, 0, sizeof(en));
+  en.kind = ENTRY_KIND_THREAD_NAME;
+  en.payload.tn.num = num;
+  memset( en.payload.tn.name, 0, sizeof(en.payload.tn.name));
+  strncpy(en.payload.tn.name, name, 16); // sizeof(name));
+  memset( &thread_names[num*MAX_THREAD_NAME_LENGTH], 0,    MAX_THREAD_NAME_LENGTH);
+  strncpy(&thread_names[num*MAX_THREAD_NAME_LENGTH], name, 16); // sizeof(name));
+  post_entry(&en);
+}
+
+
 /**
  * Check if thread tid was already encountered. If not, create and post an
  * entry of ENTRY_KIND_THREAD for this process.
  */
 void add_thread(pid_t tid, char name[16])
 {
-  if (thread_index(tid) < 0 && num_threads < MAX_NUM_THREADS)
+  int num = thread_index(tid);
+  if (num < 0 && num_threads < MAX_NUM_THREADS)
     {
       pid_t pid = get_tgid(tid);
       add_process(pid);
 
+      num = num_threads;
       thread_tids[num_threads] = tid;
       thread_pids[num_threads] = pid;
       num_threads++;
@@ -533,9 +554,11 @@ void add_thread(pid_t tid, char name[16])
       en.kind = ENTRY_KIND_THREAD;
       en.payload.t.tid = tid;
       en.payload.t.pid = pid;
-      memset(en.payload.t.name, 0, sizeof(en.payload.t.name));
-      strncpy(en.payload.t.name, name, sizeof(*name));
       post_entry(&en);
+    }
+  if (num >= 0 && strncmp(name, &thread_names[num*MAX_THREAD_NAME_LENGTH], sizeof(*name))!=0)
+    {
+      add_thread_name(num, name);
     }
 }
 
@@ -564,11 +587,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           struct entry en;
           en.kind = ENTRY_KIND_SCHED_SWITCH;
           en.payload.ss.old_tid = e->old_pid;
-          // en.payload.ss.old_pri = e->old_pri;
-          memcpy(&en.payload.ss.old_name, &e->old_name, sizeof(en.payload.ss.old_name));
           en.payload.ss.new_tid = e->new_pid;
-          // en.payload.ss.new_pri = e->new_pri;
-          memcpy(&en.payload.ss.new_name, &e->comm, sizeof(en.payload.ss.new_name));
           en.payload.ss.ns = e->ns;
           en.payload.ss.cpu_id = e->cpu_id;
           en.payload.ss.count = e->count;
@@ -577,20 +596,12 @@ int handle_event(void *ctx, void *data, size_t data_sz)
       else if (e->event_kind == RB_EVENT_SCHED_WAKEUP ||
                e->event_kind == RB_EVENT_SCHED_WAKING    )
         {
-          /*
-          cnt++;
-          if ((cnt&(cnt-1))==0)
-            {
-              printf("wakeup count %ld %d %d %s\n",cnt, e->old_pid, e->new_pid, &e->comm);
-            }
-          */
           add_thread(e->new_pid, (char*) &e->comm    );
           struct entry en;
           en.kind = e->event_kind == RB_EVENT_SCHED_WAKEUP ? ENTRY_KIND_SCHED_WAKEUP :
                     e->event_kind == RB_EVENT_SCHED_WAKING ? ENTRY_KIND_SCHED_WAKING : -1;
           en.payload.sw.old_tid = -1;
           en.payload.sw.new_tid = e->new_pid;
-          memcpy(&en.payload.sw.new_name, &e->comm, sizeof(en.payload.sw.new_name));
           en.payload.sw.ns = e->ns;
           en.payload.sw.cpu_id = e->cpu_id;
           en.payload.sw.old_tid = e->old_pid;
@@ -603,7 +614,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           memcpy(&(str[0*16]), &e->comm    [0], 16);
           memcpy(&(str[1*16]), &e->old_name[0], 16);
           str[2*16] = 0;
-          add_thread(e->new_pid, "unknown"    );
+          add_thread(e->new_pid, "unknown");
           struct entry en;
           en.kind = ENTRY_KIND_USER_EVENT;
           en.payload.ue.tid = e->new_pid;

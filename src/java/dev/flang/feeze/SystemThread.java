@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 package dev.flang.feeze;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /*---------------------------------------------------------------------*/
@@ -39,20 +40,34 @@ import java.util.Arrays;
  */
 class SystemThread extends FeezeThread
 {
+
+
+  static final String UNKNOWN_NAME = "<unknown>";
+
   int _tid;
   int _pid;
-  String _name;
   SystemProcess _p;
   int _num;
   boolean _swapper = false;
 
-  SystemThread(Data data, int tpid, int pid, String name, SystemProcess p)
+
+  /**
+   * Indices in this ActionSubSet at which the thread name changes.
+   */
+  ArrayList<Integer> _newNamesAt = new ArrayList<Integer>();
+
+  /**
+   * Indices in _data of the thread name change recorded in _newNamesAt.
+   */
+  ArrayList<Integer> _newNames  = new ArrayList<Integer>();
+
+
+  SystemThread(Data data, int tpid, int pid, SystemProcess p)
   {
     super(data);
 
     _tid = tpid;
     _pid = pid;
-    _name = name;
     _p = p;
     _p.addThread(this);
   }
@@ -75,15 +90,31 @@ class SystemThread extends FeezeThread
   @Override
   void addAction(int at)
   {
-    super.addAction(at);
-    var u = user();
-    if (u != null && // NYI: Check why it sometimes happened that this is null
-        _data.kind(at) == ENTRY_KIND_SCHED_SWITCH)
+    if (_data.kind(at) == ENTRY_KIND_THREAD_NAME)
       {
-        u.cumulative().addAction(at);
+        var sz = _newNamesAt.size();
+        if (sz == 0 || _newNamesAt.get(sz-1) < numActions())  // make sure _newNamesAt is strictly increasing
+          {
+            _newNamesAt.add(numActions());
+            _newNames.add(at);
+            if (_tid == 0 && _p._pid ==-1 && !_swapper && nameFrom(numActions()).startsWith("swapper/"))
+              {
+                _swapper = true;
+              }
+          }
       }
-    _swapper = _swapper ||
-      _p._pid == -1 && nameFrom(numActions()-1).startsWith("swapper/");
+    else
+      {
+        super.addAction(at);
+        var u = user();
+        if (u != null && // NYI: Check why it sometimes happened that this is null
+            _data.kind(at) == ENTRY_KIND_SCHED_SWITCH)
+          {
+            u.cumulative().addAction(at);
+          }
+        _swapper = _swapper ||
+          _p._pid == -1 && nameFrom(numActions()-1).startsWith("swapper/");
+      }
   }
 
   @Override
@@ -101,21 +132,23 @@ class SystemThread extends FeezeThread
 
   private String nameFrom(int ai)
   {
-    while (ai >= 0)
+    if (_newNamesAt.size() == 0)
       {
-        var at = _at[ai];
-        switch (_data.kind(at))
-          {
-          case ENTRY_KIND_SCHED_SWITCH -> { return Feeze.new_pid(at) == _tid ? _data.new_name(at)
-                                                                             : _data.old_name(at);
-                                          }
-          case ENTRY_KIND_SCHED_WAKING -> { return _data.new_name(at); }
-          case ENTRY_KIND_SCHED_WAKEUP -> { return _data.new_name(at); }
-          default -> {}
-          }
-        ai--;
+        return UNKNOWN_NAME;
       }
-    return _name;
+    else
+      {
+        var l = 0;
+        var r = _newNamesAt.size()-1;
+        while (l<r)
+          {
+            var m = (l + r)/2;
+            if (_newNamesAt.get(m) >= ai) { r = m-1; }
+            if (_newNamesAt.get(m) <= ai) { l = m+1; }
+          }
+        var i = Math.max(0, l-1);
+        return _data.threadName(_newNames.get(i));
+      }
   }
 
 

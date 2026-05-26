@@ -163,13 +163,6 @@ public class Feeze extends ANY implements Offsets
   {
     return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_OLD_PID_OFFSET);
   }
-  static void old_name(int at, byte[] bs)
-  {
-    for (var i = 0; i<16; i++)
-      {
-        bs[i] = b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_OLD_NAME_OFFSET+i);
-      }
-  }
 
   static int new_pid(int at)
   {
@@ -178,13 +171,6 @@ public class Feeze extends ANY implements Offsets
                            1 << ENTRY_KIND_SCHED_WAKING |
                            1 << ENTRY_KIND_SCHED_WAKING  )) != 0);
     return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
-  }
-  static void new_name(int at, byte[] bs)
-  {
-    for (var i = 0; i<16; i++)
-      {
-        bs[i] = b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_NAME_OFFSET+i);
-      }
   }
   static long ns(int at)
   {

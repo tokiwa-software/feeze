@@ -267,7 +267,7 @@ class Data extends ANY implements Offsets
       {
         bs[i] = getByte(at, off+i);
       }
-    return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString();
+    return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString()+" at "+off+" l "+len;
   }
 
   /**
@@ -326,8 +326,7 @@ class Data extends ANY implements Offsets
                 {
                   var tid  = getInt(names_processed, ENTRY_T_TID_OFFSET);
                   var pid  = getInt(names_processed, ENTRY_T_PID_OFFSET);
-                  var name = getName(names_processed, ENTRY_T_NAME_OFFSET, ENTRY_T_NAME_LENGTH);
-                  var t = new SystemThread(this, tid, pid, name, _processesMap.get(pid));
+                  var t = new SystemThread(this, tid, pid, _processesMap.get(pid));
                   _threadsMap.put(tid, t);
                   _threads.add(t);
                   break;
@@ -385,6 +384,20 @@ class Data extends ANY implements Offsets
                     }
                   break;
                 }
+              case ENTRY_KIND_THREAD_NAME:
+                {
+                  var num = getInt(names_processed, ENTRY_TN_NUM_OFFSET);
+                  if (num >= 0 && num < _threads.size())
+                    {
+                      var t = _threads.get(num);
+                      t.addAction(names_processed);
+                    }
+                  else
+                    {
+                      System.err.println("*** illegal thread number "+num+" in ENTRY_KIND_THREAD_NAME for entry #"+names_processed);
+                    }
+                  break;
+                }
               default:
                 {
                   System.err.println("*** unknown entry kind "+kind(names_processed)+" for entry #"+names_processed);
@@ -425,24 +438,13 @@ class Data extends ANY implements Offsets
   }
 
 
-  String new_name(int at)
+
+  String threadName(int at)
   {
     if (PRECONDITIONS) require
-      ( switch (kind(at))
-        {
-        case ENTRY_KIND_SCHED_SWITCH, ENTRY_KIND_SCHED_WAKING, ENTRY_KIND_SCHED_WAKEUP -> true;
-        default -> false;
-        }
-        );
+      (kind(at) == ENTRY_KIND_THREAD_NAME);
 
-    return getName(at, ENTRY_SS_NEW_NAME_OFFSET, 16);
-  }
-  String old_name(int at)
-  {
-    if (PRECONDITIONS) require
-      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
-
-    return getName(at, ENTRY_SS_OLD_NAME_OFFSET, 16);
+    return getName(at, ENTRY_TN_NAME_OFFSET, ENTRY_TN_NAME_LENGTH);
   }
 
 
