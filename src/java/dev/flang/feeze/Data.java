@@ -317,7 +317,7 @@ class Data extends ANY implements Offsets
       {
         bs[i] = getByte(at, off+i);
       }
-    return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString()+" at "+off+" l "+len;
+    return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString();
   }
 
   /**
