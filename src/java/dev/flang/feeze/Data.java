@@ -280,7 +280,9 @@ class Data extends ANY implements Offsets
   int cpu_id(int at)
   {
     if (PRECONDITIONS) require
-      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH ||
+       kind(at) == ENTRY_KIND_SCHED_WAKING ||
+       kind(at) == ENTRY_KIND_SCHED_WAKEUP    );
 
     return getInt(at, ENTRY_SS_CPU_ID_OFFSET);
   }

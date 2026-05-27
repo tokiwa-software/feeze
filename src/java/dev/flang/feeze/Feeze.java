@@ -169,7 +169,7 @@ public class Feeze extends ANY implements Offsets
     if (PRECONDITIONS) require
       (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
                            1 << ENTRY_KIND_SCHED_WAKING |
-                           1 << ENTRY_KIND_SCHED_WAKING  )) != 0);
+                           1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
     return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
   }
   static long ns(int at)
