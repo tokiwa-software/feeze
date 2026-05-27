@@ -1058,6 +1058,7 @@ int main(int argc, char**args)
                str_endsWith  (s, "'\n"    )    )
         {
           strncpy(name, s+7, strlen(s)-7-2);
+          name[strlen(s)-7-2] = 0;
           fprintf(stdout, "START RECORDING TO '%s'\n", name); fflush(stdout);
           pthread_t rt = {};
           struct record_config * conf = malloc(sizeof(struct record_config));
