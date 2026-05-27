@@ -1265,6 +1265,45 @@ class SchedulingPanorama extends Panorama
   }
 
 
+  static final boolean SUPRESS_ARROWS_WHEN_BLURRED = true;  // when set, blurred threads do not show any waking-arrows
+
+  static final boolean ONLY_ONE_ARROW_WHEN_BLURRED = true;  // when set, blurred threads will see at most one waking-arror
+
+
+  /**
+   * During showRunning, is the current thread blurred? Remembers also if a
+   * waking-arrow was drawn for a blurred thread.
+   */
+  static enum BlurredState
+  {
+    plain,
+    blurred,
+    blurredWithArrow;
+
+    // convert to blurred state, keeping blurredWithArrow unchanged.
+    BlurredState blur()
+    {
+      return switch (BlurredState.this)
+        {
+        case plain            -> blurred;
+        case blurred          -> blurred;
+        case blurredWithArrow -> blurredWithArrow;
+        };
+    }
+
+    // Set to `blurredWithArrow` if `blurred`.
+    BlurredState drawnArrow()
+    {
+      return switch (BlurredState.this)
+        {
+        case plain            -> plain;
+        case blurred          -> blurredWithArrow;
+        case blurredWithArrow -> blurredWithArrow;
+        };
+    }
+  }
+
+
   /**
    * Show when a thread or CPU is running along a horizontal line
    *
@@ -1288,7 +1327,9 @@ class SchedulingPanorama extends Panorama
                    boolean cpu,
                    ArrayList<Runnable> toDo)
   {
+    var blurredState = BlurredState.plain;
     int blurredUpToX = -1;
+    int arrowDrawnAtX = -1;
     int from_a = actionAt(resource, r.x);
     while (!resource.isStateChange(from_a) && from_a>0)
       {
@@ -1319,35 +1360,44 @@ class SchedulingPanorama extends Panorama
             var xl = nanos_to_posx(nl);
             var xr = nanos_to_posx(nr);
 
+            var state = stateAt(resource, a);
             if (posx_to_nanos(xl+2) < nnr)
               {
-                var state = stateAt(resource, a);
                 g.setColor(state._color);
                 _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
-
-                // draw arrow from thread that wakes up this thread to this thread:
-                if (state == ThreadState.waking && !cpu)
-                  {
-                    var t0 = _data.causingThreadAt(resource.at(a));
-                    if (t0 != null)
-                      {
-                        var t0i = threadIndex(t0);
-                        if (t0i >= 0)
-                          {
-                            var y0 = threadY(t0i);
-                            var s = _zoom.zoom(0.5 * _activeWidth_                            + 1);
-                            var e = _zoom.zoom(0.5 * (cpu ? _wakingWidthCPU_ : _wakingWidth_) + 1);
-                            if (y0 <= y) {                g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 + s), (int) (y - e));
-                            } else       { toDo.add(()->{ g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 - s), (int) (y + e)); } ); }
-                          }
-                      }
-                  }
+                blurredState = BlurredState.plain;
               }
-            else if (blurredUpToX < xr)
+            else if (blurredUpToX <= xr)
               {
                 g.setColor(VERY_DARK_GREEN);
                 _zoom.drawHLine(g,cpu ? _activeWidthCPU_ : _activeWidth_,xl,y,xr-1);
                 blurredUpToX = xr;
+                blurredState = blurredState.blur();
+              }
+
+            // draw arrow from thread that wakes up this thread to this thread:
+            if (state == ThreadState.waking &&
+                !cpu &&
+                (!SUPRESS_ARROWS_WHEN_BLURRED || blurredState == BlurredState.plain           ) &&
+                (!ONLY_ONE_ARROW_WHEN_BLURRED || blurredState != BlurredState.blurredWithArrow) &&
+                arrowDrawnAtX < xl + zoom(2)
+                )
+              {
+                var t0 = _data.causingThreadAt(resource.at(a));
+                if (t0 != null)
+                  {
+                    var t0i = threadIndex(t0);
+                    if (t0i >= 0)
+                      {
+                        var y0 = threadY(t0i);
+                        var s = _zoom.zoom(0.5 * _activeWidth_                            + 1);
+                        var e = _zoom.zoom(0.5 * (cpu ? _wakingWidthCPU_ : _wakingWidth_) + 1);
+                        if (y0 <= y) {                g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 + s), (int) (y - e));
+                        } else       { toDo.add(()->{ g.setColor(state._color.darker()); _zoom.drawVArrow(g, 1, xl, (int) (y0 - s), (int) (y + e)); } ); }
+                        arrowDrawnAtX = xl;
+                        blurredState = blurredState.drawnArrow();
+                      }
+                  }
               }
           }
       }
