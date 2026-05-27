@@ -318,8 +318,8 @@ class SchedulingPanorama extends Panorama
               {
                 cpu = tstate == ThreadState.running ||
                       tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(ai)
-                    : tstate == ThreadState.waking        ? "CAUSED by " + Feeze.old_pid(t.at(ai))+":" +_data.oldThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
-                    : tstate == ThreadState.wakesup       ? "CAUSED by " + Feeze.old_pid(t.at(ai))+":" +_data.oldThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
+                    : tstate == ThreadState.waking        ? "CAUSED by " + _data.causingThreadAt(t.at(ai))+":" +_data.causingThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
+                    : tstate == ThreadState.wakesup       ? "CAUSED by " + _data.causingThreadAt(t.at(ai))+":" +_data.causingThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
                     : "";
                 if (ai+1 < t.numActions() &&
                     stateAt(t, ai+1) != ThreadState.error    )
@@ -1328,7 +1328,7 @@ class SchedulingPanorama extends Panorama
                 // draw arrow from thread that wakes up this thread to this thread:
                 if (state == ThreadState.waking && !cpu)
                   {
-                    var t0 = _data.oldThreadAt(resource.at(a));
+                    var t0 = _data.causingThreadAt(resource.at(a));
                     if (t0 != null)
                       {
                         var t0i = threadIndex(t0);

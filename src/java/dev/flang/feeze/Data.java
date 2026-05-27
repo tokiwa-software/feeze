@@ -102,14 +102,40 @@ class Data extends ANY implements Offsets
 
   int kind(int at)
   {
-    return Feeze.kind(at);
+    return _b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_KIND_OFFSET) & 0xff;
+  }
+
+  long ns(int at)
+  {
+    if (PRECONDITIONS) require
+      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
+                           1 << ENTRY_KIND_SCHED_WAKING |
+                           1 << ENTRY_KIND_SCHED_WAKEUP |
+                           1 << ENTRY_KIND_USER_EVENT   )) != 0);
+    return _b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_NS_OFFSET);
   }
 
   SystemThread thread(int at, boolean old)
   {
-    var tpid = old ? Feeze.old_pid(at)
-                   : Feeze.new_pid(at);
+    var tpid = old ? old_pid(at)
+                   : new_pid(at);
     return _threadsMap.get(tpid);
+  }
+
+  private int old_pid(int at)
+  {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
+    return _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_OLD_PID_OFFSET);
+  }
+
+  private int new_pid(int at)
+  {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
+    return _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
   }
 
   long byteSize()
@@ -134,12 +160,38 @@ class Data extends ANY implements Offsets
 
   SystemThread oldThreadAt(int at)
   {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
     return thread(at, true);
   }
 
   SystemThread newThreadAt(int at)
   {
+    if (PRECONDITIONS) require
+      (kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
     return thread(at, false);
+  }
+
+  SystemThread causingThreadAt(int at)
+  {
+    if (PRECONDITIONS) require
+      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_WAKING |
+                           1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
+
+    var tid = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SW_CAUSING_PID_OFFSET);
+    return _threadsMap.get(tid);
+  }
+
+  SystemThread affectedThreadAt(int at)
+  {
+    if (PRECONDITIONS) require
+      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_WAKING |
+                           1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
+
+    var tid = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SW_AFFECTED_PID_OFFSET);
+    return _threadsMap.get(tid);
   }
 
   long nanosMin()
@@ -151,7 +203,7 @@ class Data extends ANY implements Offsets
           {
           case ENTRY_KIND_SCHED_SWITCH:
           case ENTRY_KIND_SCHED_WAKING:
-          case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
+          case ENTRY_KIND_SCHED_WAKEUP: return ns(at);
           default: break;
           }
         at++;
@@ -167,7 +219,7 @@ class Data extends ANY implements Offsets
           {
           case ENTRY_KIND_SCHED_SWITCH:
           case ENTRY_KIND_SCHED_WAKING:
-          case ENTRY_KIND_SCHED_WAKEUP: return Feeze.ns(at);
+          case ENTRY_KIND_SCHED_WAKEUP: return ns(at);
           default: break;
           }
         at--;
@@ -186,7 +238,7 @@ class Data extends ANY implements Offsets
       case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
       case ENTRY_KIND_USER_EVENT  :
-        return Feeze.ns(at);
+        return ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
       }
   }
@@ -218,17 +270,15 @@ class Data extends ANY implements Offsets
 
   int count(int at)
   {
-    switch (kind(at))
-      {
-      case ENTRY_KIND_SCHED_SWITCH:
-      case ENTRY_KIND_SCHED_WAKING:
-      case ENTRY_KIND_SCHED_WAKEUP:
-      case ENTRY_KIND_USER_EVENT:
-        var c = Feeze.count(at);
-        _hasCount.set(c);
-        return c;
-      default: throw new Error("No count available for kind "+kind(at)+" at "+at);
-      }
+   if (PRECONDITIONS) require
+      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
+                           1 << ENTRY_KIND_SCHED_WAKING |
+                           1 << ENTRY_KIND_SCHED_WAKEUP |
+                           1 << ENTRY_KIND_USER_EVENT   )) != 0);
+
+   var c = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_COUNT_OFFSET);
+   _hasCount.set(c);
+   return c;
   }
 
   boolean hasCount(int c)
@@ -249,11 +299,11 @@ class Data extends ANY implements Offsets
 
   byte getByte(int at, int off)
   {
-    return Feeze.b.get(entry_start_offset + at*ENTRY_SIZE + off);
+    return _b.get(entry_start_offset + at*ENTRY_SIZE + off);
   }
   int getInt(int at, int off)
   {
-    return Feeze.b.getInt(entry_start_offset + at*ENTRY_SIZE + off);
+    return _b.getInt(entry_start_offset + at*ENTRY_SIZE + off);
   }
   String getName(int at, int off, int len)
   {
@@ -284,7 +334,7 @@ class Data extends ANY implements Offsets
        kind(at) == ENTRY_KIND_SCHED_WAKING ||
        kind(at) == ENTRY_KIND_SCHED_WAKEUP    );
 
-    return getInt(at, ENTRY_SS_CPU_ID_OFFSET);
+    return getInt(at, ENTRY_TIMED_CPU_ID_OFFSET);
   }
 
   synchronized void processNewData()
@@ -359,7 +409,7 @@ class Data extends ANY implements Offsets
               case ENTRY_KIND_SCHED_WAKEUP:
                 {
                   var ignore = count(names_processed);
-                  var nt = thread(names_processed, false);
+                  var nt = affectedThreadAt(names_processed);
                   nt.addAction(names_processed);
                   var cpu_id = cpu_id(names_processed);
                   if (cpu_id >= 0)
@@ -371,8 +421,6 @@ class Data extends ANY implements Offsets
                           _cpusMap.put(cpu_id, cpu);
                           _cpus.add(cpu);
                         }
-                      var cpu = _cpusMap.get(cpu_id);
-                      cpu.addAction(names_processed);
                     }
                   break;
                 }

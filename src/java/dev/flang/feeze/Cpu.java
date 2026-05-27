@@ -49,6 +49,9 @@ class Cpu extends ActionSubSet
 
   void addAction(int at)
   {
+    if (PRECONDITIONS) require
+      (_data.kind(at) == ENTRY_KIND_SCHED_SWITCH);
+
     super.addAction(at);
   }
 

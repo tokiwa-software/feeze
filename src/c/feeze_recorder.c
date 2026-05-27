@@ -118,24 +118,27 @@ struct sched_switch_payload
   pid_t old_tid;
   pid_t new_tid;
   char pad[32];
-  uint64_t ns;
-  uint32_t cpu_id;
-  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
 struct sched_wakeup_payload
 {
-  pid_t old_tid;
+  pid_t causing_tid;
   pid_t new_tid;
   char pad[32];
-  uint64_t ns;
-  uint32_t cpu_id;
-  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
 struct user_event
 {
   pid_t tid;
   uint32_t col;
   char msg[32];
+};
+struct timed_payload
+{
+  union
+  {
+    struct sched_switch_payload ss;
+    struct sched_wakeup_payload sw;
+    struct user_event           ue;
+  } payload;
   uint64_t ns;
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
@@ -149,13 +152,12 @@ struct entry
   uint32_t pad4;
   union
   {
+    struct timed_payload timed;
+
     struct user_payload         u;
     struct process_payload      p;
     struct thread_payload       t;
     struct thread_name_payload  tn;
-    struct sched_switch_payload ss;
-    struct sched_wakeup_payload sw;
-    struct user_event           ue;
   } payload;
 };
 
@@ -266,9 +268,9 @@ void post_entry(struct entry *e)
         {
           printf("thread switch %lu: %d -> %d at %luns\n",
                  eventcount,
-                 e->payload.ss.old_tid,
-                 e->payload.ss.new_tid,
-                 e->payload.ss.ns);
+                 e->payload.timed.payload.ss.old_tid,
+                 e->payload.timed.payload.ss.new_tid,
+                 e->payload.timed.ns);
         }
     }
 }
@@ -580,49 +582,44 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           printf("shared mem buffer full\n"); // fflush(stdout);
           finishing = true;
         }
-      else if (e->event_kind == RB_EVENT_SCHED_SWITCH)
+      else if (e->event_kind == RB_EVENT_SCHED_SWITCH ||
+               e->event_kind == RB_EVENT_SCHED_WAKEUP ||
+               e->event_kind == RB_EVENT_SCHED_WAKING ||
+               e->event_kind == RB_EVENT_FUZION_USER     )
         {
-          add_thread(e->old_pid, (char*) &e->old_name);
-          add_thread(e->new_pid, (char*) &e->comm    );
           struct entry en;
-          en.kind = ENTRY_KIND_SCHED_SWITCH;
-          en.payload.ss.old_tid = e->old_pid;
-          en.payload.ss.new_tid = e->new_pid;
-          en.payload.ss.ns = e->ns;
-          en.payload.ss.cpu_id = e->cpu_id;
-          en.payload.ss.count = e->count;
-          post_entry(&en);
-        }
-      else if (e->event_kind == RB_EVENT_SCHED_WAKEUP ||
-               e->event_kind == RB_EVENT_SCHED_WAKING    )
-        {
-          add_thread(e->new_pid, (char*) &e->comm    );
-          struct entry en;
-          en.kind = e->event_kind == RB_EVENT_SCHED_WAKEUP ? ENTRY_KIND_SCHED_WAKEUP :
-                    e->event_kind == RB_EVENT_SCHED_WAKING ? ENTRY_KIND_SCHED_WAKING : -1;
-          en.payload.sw.old_tid = -1;
-          en.payload.sw.new_tid = e->new_pid;
-          en.payload.sw.ns = e->ns;
-          en.payload.sw.cpu_id = e->cpu_id;
-          en.payload.sw.old_tid = e->old_pid;
-          en.payload.sw.count = e->count;
-          post_entry(&en);
-        }
-      else if (e->event_kind == RB_EVENT_FUZION_USER)
-        {
-          char str[2*16+1];
-          memcpy(&(str[0*16]), &e->comm    [0], 16);
-          memcpy(&(str[1*16]), &e->old_name[0], 16);
-          str[2*16] = 0;
-          add_thread(e->new_pid, "unknown");
-          struct entry en;
-          en.kind = ENTRY_KIND_USER_EVENT;
-          en.payload.ue.tid = e->new_pid;
-          en.payload.ue.col = e->new_pri;
-          memcpy(&en.payload.ue.msg, &str, 32);
-          en.payload.ue.ns = e->ns;
-          en.payload.ue.count = e->count;
-          en.payload.ue.cpu_id = e->cpu_id;
+          if (e->event_kind == RB_EVENT_SCHED_SWITCH)
+            {
+              add_thread(e->old_pid, (char*) &e->old_name);
+              add_thread(e->new_pid, (char*) &e->comm    );
+              en.kind = ENTRY_KIND_SCHED_SWITCH;
+              en.payload.timed.payload.ss.old_tid = e->old_pid;
+              en.payload.timed.payload.ss.new_tid = e->new_pid;
+            }
+          else if (e->event_kind == RB_EVENT_SCHED_WAKEUP ||
+                   e->event_kind == RB_EVENT_SCHED_WAKING    )
+            {
+              add_thread(e->new_pid, (char*) &e->comm    );
+              en.kind = e->event_kind == RB_EVENT_SCHED_WAKEUP ? ENTRY_KIND_SCHED_WAKEUP :
+                        e->event_kind == RB_EVENT_SCHED_WAKING ? ENTRY_KIND_SCHED_WAKING : -1;
+              en.payload.timed.payload.sw.causing_tid = e->old_pid;
+              en.payload.timed.payload.sw.new_tid = e->new_pid;
+            }
+          else if (e->event_kind == RB_EVENT_FUZION_USER)
+            {
+              char str[2*16+1];
+              memcpy(&(str[0*16]), &e->comm    [0], 16);
+              memcpy(&(str[1*16]), &e->old_name[0], 16);
+              str[2*16] = 0;
+              add_thread(e->new_pid, "unknown");
+              en.kind = ENTRY_KIND_USER_EVENT;
+              en.payload.timed.payload.ue.tid = e->new_pid;
+              en.payload.timed.payload.ue.col = e->new_pri;
+              memcpy(&en.payload.timed.payload.ue.msg, &str, 32);
+            }
+          en.payload.timed.ns = e->ns;
+          en.payload.timed.count = e->count;
+          en.payload.timed.cpu_id = e->cpu_id;
           post_entry(&en);
         }
     }
@@ -710,11 +707,6 @@ void *record(void *arg)
       exit(1);
     }
   entry* en = NULL;
-  if (&en->payload.ue.count != &en->payload.sw.count)
-    {
-      fprintf(stderr,"union in trouble %p vs %p", &en->payload.ue.count, &en->payload.sw.count);
-      exit(1);
-    }
 
   counter = 0;
   eventcount = 0;

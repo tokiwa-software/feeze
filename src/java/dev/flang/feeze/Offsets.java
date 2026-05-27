@@ -39,11 +39,15 @@ public interface Offsets
 
   public static int ENTRY_KIND_OFFSET        = 0x00;
 
+  public static int ENTRY_TIMED_NS_OFFSET     = 0x30;
+  public static int ENTRY_TIMED_COUNT_OFFSET  = 0x3c;
+  public static int ENTRY_TIMED_CPU_ID_OFFSET = 0x38;
+
   public static int ENTRY_SS_OLD_PID_OFFSET  = 0x08;
   public static int ENTRY_SS_NEW_PID_OFFSET  = 0x0c;
-  public static int ENTRY_SS_NS_OFFSET       = 0x30;
-  public static int ENTRY_SS_CPU_ID_OFFSET   = 0x38;
-  public static int ENTRY_SS_COUNT_OFFSET    = 0x3c;
+
+  public static int ENTRY_SW_CAUSING_PID_OFFSET  = 0x08;
+  public static int ENTRY_SW_AFFECTED_PID_OFFSET = 0x0c;
 
   public static int ENTRY_U_UID_OFFSET       = 0x08;
   public static int ENTRY_U_NAME_OFFSET      = 0x0c;
@@ -67,9 +71,6 @@ public interface Offsets
   public static int ENTRY_UE_COLOR           = 0x0c;
   public static int ENTRY_UE_MSG             = 0x10;
   public static int ENTRY_UE_MSG_SIZE                = 0x20;
-  public static int ENTRY_UE_NS_OFFSET       = 0x30;
-  public static int ENTRY_UE_CPU_ID_OFFSET   = 0x38;
-  public static int ENTRY_UE_COUNT_OFFSET    = 0x3c;
 
   public static int ENTRY_SIZE            = 0x40;
 

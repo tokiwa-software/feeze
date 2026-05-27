@@ -80,8 +80,6 @@ public class Feeze extends ANY implements Offsets
 
   public static final String FEEZE_HOME = System.getProperties().getProperty("feeze.home",".");
 
-  static MappedByteBuffer b;
-
 
   /**
    * Counter for open data frames to make sure we do not quit without asking if
@@ -127,7 +125,7 @@ public class Feeze extends ANY implements Offsets
                       }
                   }
                 while (l == 0);
-                b = channel.map(FileChannel.MapMode.READ_ONLY, 0, l);
+                var b = channel.map(FileChannel.MapMode.READ_ONLY, 0, l);
                 b.order(ByteOrder.LITTLE_ENDIAN);
                 _data = new Data(b);
                 _data.processNewData();
@@ -155,31 +153,7 @@ public class Feeze extends ANY implements Offsets
           }
       }
   }
-  static int kind(int at)
-  {
-    return b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_KIND_OFFSET) & 0xff;
-  }
-  static int old_pid(int at)
-  {
-    return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_OLD_PID_OFFSET);
-  }
 
-  static int new_pid(int at)
-  {
-    if (PRECONDITIONS) require
-      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
-                           1 << ENTRY_KIND_SCHED_WAKING |
-                           1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
-    return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
-  }
-  static long ns(int at)
-  {
-    return b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NS_OFFSET);
-  }
-  static int count(int at)
-  {
-    return b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_COUNT_OFFSET);
-  }
 
   static void askToQuit(JFrame frame)
   {
