@@ -57,7 +57,6 @@ struct event
   char	comm[16 /* TASK_COMM_LEN */];
   __u64 ns;
   __u32 cpu_id;
-  int count;  // event count to detect missing events and ensure correct ordering
 };
 
 #endif /* __FEEZE_RECORDER_COMMON_H */

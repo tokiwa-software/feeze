@@ -142,7 +142,6 @@ struct timed_payload
   } payload;
   uint64_t ns;
   uint32_t cpu_id;
-  int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
 struct gap_payload
 {
@@ -628,7 +627,6 @@ int handle_event(void *ctx, void *data, size_t data_sz)
               memcpy(&en.payload.timed.payload.ue.msg, &str, 32);
             }
           en.payload.timed.ns = e->ns;
-          en.payload.timed.count = e->count;
           en.payload.timed.cpu_id = e->cpu_id;
           post_entry(&en);
         }

@@ -48,11 +48,6 @@ struct {
 
 
 /**
- * Event counter used to detect ringbuf overflows
- */
-uint64_t count = 0;
-
-/**
  * Overflow states:
  *
 
@@ -181,7 +176,6 @@ int on_task_switch(struct trace_event_raw_sched_switch *ctx)
       es.comm[15] = ctx->next_comm[15];
       es.cpu_id = bpf_get_smp_processor_id();
       es.ns = bpf_ktime_get_ns();
-      es.count = __sync_fetch_and_add(&count, 1);
       ringbuf_out(&es);
     }
 
@@ -230,7 +224,6 @@ int on_task_waking(struct trace_event_raw_sched_wakeup_template *ctx)
       es.comm[15] = ctx->comm[15];
       es.cpu_id = ctx->target_cpu;
       es.ns = bpf_ktime_get_ns();
-      es.count = __sync_fetch_and_add(&count, 1);
       ringbuf_out(&es);
     }
   return 0;
@@ -279,7 +272,6 @@ int on_task_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
       es.comm[15] = ctx->comm[15];
       es.cpu_id = ctx->target_cpu;
       es.ns = bpf_ktime_get_ns();
-      es.count = __sync_fetch_and_add(&count, 1);
       ringbuf_out(&es);
     }
   return 0;
@@ -355,7 +347,6 @@ int handle_fuzion_probe(struct pt_regs *ctx)
           es.comm[1] = 0;
         }
       es.ns = bpf_ktime_get_ns();
-      es.count = 3; // NYI: remove?
       ringbuf_out(&es);
     }
   return 0;
