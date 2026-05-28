@@ -91,17 +91,18 @@ struct  shared_buffer
 #define ENTRY_KIND_USER_EVENT    7
 #define ENTRY_KIND_THREAD_NAME   8
 #define ENTRY_KIND_GAP           9  // A gap in the data due to ringbuffer overflow
+#define ENTRY_KIND_MORE_CHARS   10  // continuation of a previous char[]
 
 struct user_payload
 {
   uid_t uid;
-  char name[32];
+  char name[16];
 };
 struct process_payload
 {
   pid_t pid;
   uid_t uid;
-  char name[32];
+  char name[16];
 };
 struct thread_payload
 {
@@ -112,25 +113,28 @@ struct thread_name_payload
 {
   uint32_t num;
   uint32_t pad1;
-  char name[32];
+  char name[16];
+};
+struct more_chars_payload
+{
+  char str[24];
 };
 struct sched_switch_payload
 {
   pid_t old_tid;
   pid_t new_tid;
-  char pad[32];
 };
 struct sched_wakeup_payload
 {
   pid_t causing_tid;
   pid_t new_tid;
-  char pad[32];
 };
 struct user_event
 {
-  pid_t tid;
-  uint32_t col;
-  char msg[32];
+  uint16_t t_num;
+  uint8_t col;
+  uint8_t pad;
+  char msg[4];
 };
 struct timed_payload
 {
@@ -162,10 +166,11 @@ struct entry
     struct thread_payload       t;
     struct thread_name_payload  tn;
     struct gap_payload          gp;
+    struct more_chars_payload   mc;
   } payload;
 };
 
-#define ENTRY_SIZE 0x40
+#define ENTRY_SIZE 0x20
 
 
 volatile uint64_t counter = 0;
@@ -245,7 +250,6 @@ static void sig_handler(int sig)
   exiting = true;
   finishing = true;
 }
-
 
 
 /**
@@ -483,6 +487,30 @@ char *get_user_name(uid_t uid, char *buffer, int n)
 
 
 /**
+ * Add event of type ENTRY_KIND_MORE_CHARS to add additional chars to a
+ * string that is part of the previous event.
+ *
+ * @param more_chars the additional chars, must be '\0'-terminated. May be NULL
+ * to do nothing.
+ */
+void post_more_chars(const char *more_chars)
+{
+  struct entry en;
+  while (more_chars != NULL)
+    {
+      memset(&en, 0, sizeof(en));
+      en.kind = ENTRY_KIND_MORE_CHARS;
+      int l = strlen(more_chars);
+      int lmax = sizeof(en.payload.mc.str);
+      int l1 = l > lmax ? lmax : l;
+      memcpy(en.payload.mc.str, more_chars, l1);
+      post_entry(&en);
+      more_chars = l == l1 ? NULL : &more_chars[l];
+    }
+}
+
+
+/**
  * Check if user uid was already encountered. If not, create and post an
  * entry of ENTRY_KIND_USER for this user.
  */
@@ -498,6 +526,7 @@ void add_user(uid_t uid)
       en.payload.u.uid = uid;
       get_user_name(uid, (char*)&en.payload.u.name, sizeof(en.payload.u.name));
       post_entry(&en);
+      // NYI: use post_more_chars in case user name is too long!
     }
 }
 
@@ -521,6 +550,7 @@ void add_process(pid_t pid)
       en.payload.p.uid = uid;
       get_process_name(pid, (char*)&en.payload.p.name, sizeof(en.payload.p.name));
       post_entry(&en);
+      // NYI: use post_more_chars in case process name is too long!
     }
 }
 
@@ -537,6 +567,7 @@ void add_thread_name(int num,
   memset( &thread_names[num*MAX_THREAD_NAME_LENGTH], 0,    MAX_THREAD_NAME_LENGTH);
   strncpy(&thread_names[num*MAX_THREAD_NAME_LENGTH], name, 16); // sizeof(name));
   post_entry(&en);
+  // NYI: use post_more_chars in case thread name is too long!
 }
 
 
@@ -578,6 +609,8 @@ int handle_event(void *ctx, void *data, size_t data_sz)
 {
   if (!finishing && data != NULL && data_sz == sizeof(struct event))
     {
+      char str[2*16+1];  // NYI: Support for user events with longer strings.
+      const char*more_chars = NULL;
       const struct event *e = data;
       uint64_t ec = eventcount;
       entry* entries = (entry*) &(shmem[1]);
@@ -616,19 +649,29 @@ int handle_event(void *ctx, void *data, size_t data_sz)
             }
           else if (e->event_kind == RB_EVENT_FUZION_USER)
             {
-              char str[2*16+1];
               memcpy(&(str[0*16]), &e->comm    [0], 16);
               memcpy(&(str[1*16]), &e->old_name[0], 16);
               str[2*16] = 0;
               add_thread(e->new_pid, "unknown");
               en.kind = ENTRY_KIND_USER_EVENT;
-              en.payload.timed.payload.ue.tid = e->new_pid;
-              en.payload.timed.payload.ue.col = e->new_pri;
-              memcpy(&en.payload.timed.payload.ue.msg, &str, 32);
+              int num = thread_index(e->new_pid);
+              if (num >= 0 && num <= 0xffff)
+                {
+                  struct entry *n = NULL;
+                  en.payload.timed.payload.ue.t_num = (uint16_t) num;
+                  fprintf(stderr,"col is %d at %p\n",(int)e->new_pri,&n->payload.timed.payload.ue.col);
+                  en.payload.timed.payload.ue.col = (uint8_t) e->new_pri;
+                  memcpy(&en.payload.timed.payload.ue.msg, &str, sizeof(en.payload.timed.payload.ue.msg));
+                  if (strlen(str) > sizeof(en.payload.timed.payload.ue.msg))
+                    {
+                      more_chars = &str[sizeof(en.payload.timed.payload.ue.msg)];
+                    }
+                }
             }
           en.payload.timed.ns = e->ns;
           en.payload.timed.cpu_id = e->cpu_id;
           post_entry(&en);
+          post_more_chars(more_chars);
         }
     }
   return 0;

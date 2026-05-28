@@ -39,9 +39,8 @@ public interface Offsets
 
   public static int ENTRY_KIND_OFFSET        = 0x00;
 
-  public static int ENTRY_TIMED_NS_OFFSET     = 0x30;
-  public static int ENTRY_TIMED_COUNT_OFFSET  = 0x3c;
-  public static int ENTRY_TIMED_CPU_ID_OFFSET = 0x38;
+  public static int ENTRY_TIMED_NS_OFFSET     = 0x10;
+  public static int ENTRY_TIMED_CPU_ID_OFFSET = 0x18;
 
   public static int ENTRY_SS_OLD_PID_OFFSET  = 0x08;
   public static int ENTRY_SS_NEW_PID_OFFSET  = 0x0c;
@@ -51,28 +50,32 @@ public interface Offsets
 
   public static int ENTRY_U_UID_OFFSET       = 0x08;
   public static int ENTRY_U_NAME_OFFSET      = 0x0c;
-  public static int ENTRY_U_NAME_LENGTH      = 0x20;
+  public static int ENTRY_U_NAME_LENGTH              = 0x10;
 
   public static int ENTRY_P_PID_OFFSET       = 0x08;
   public static int ENTRY_P_UID_OFFSET       = 0x0c;
   public static int ENTRY_P_NAME_OFFSET      = 0x10;
-  public static int ENTRY_P_NAME_LENGTH      = 0x20;
+  public static int ENTRY_P_NAME_LENGTH              = 0x10;
 
   public static int ENTRY_T_TID_OFFSET       = 0x08;
   public static int ENTRY_T_PID_OFFSET       = 0x0c;
   public static int ENTRY_T_NAME_OFFSET      = 0x10;
-  public static int ENTRY_T_NAME_LENGTH      = 0x20;
+  public static int ENTRY_T_NAME_LENGTH              = 0x10;
 
   public static int ENTRY_TN_NUM_OFFSET      = 0x08;
   public static int ENTRY_TN_NAME_OFFSET     = 0x10;
-  public static int ENTRY_TN_NAME_LENGTH     = 0x20;
+  public static int ENTRY_TN_NAME_LENGTH             = 0x10;
 
-  public static int ENTRY_UE_TID             = 0x08;
-  public static int ENTRY_UE_COLOR           = 0x0c;
-  public static int ENTRY_UE_MSG             = 0x10;
-  public static int ENTRY_UE_MSG_SIZE                = 0x20;
+  public static int ENTRY_UE_T_NUM           = 0x08;
+  public static int ENTRY_UE_COLOR_BYTE      = 0x0a;
+  public static int ENTRY_UE_PAD_BYTE        = 0x0b;
+  public static int ENTRY_UE_MSG             = 0x0c;
+  public static int ENTRY_UE_MSG_SIZE                = 0x04;
 
-  public static int ENTRY_SIZE            = 0x40;
+  public static int ENTRY_MC_STR_OFFSET      = 0x08;
+  public static int ENTRY_MC_STR_SIZE                = 0x18;
+
+  public static int ENTRY_SIZE            = 0x20;
 
   public static int ENTRY_KIND_UNUSED        = 0;
   public static int ENTRY_KIND_SCHED_SWITCH  = 1;
@@ -84,5 +87,6 @@ public interface Offsets
   public static int ENTRY_KIND_USER_EVENT    = 7;
   public static int ENTRY_KIND_THREAD_NAME   = 8;
   public static int ENTRY_KIND_GAP           = 9;
+  public static int ENTRY_KIND_MORE_CHARS    = 10;
 
 }

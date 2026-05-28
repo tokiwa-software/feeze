@@ -283,10 +283,36 @@ class Data extends ANY implements Offsets
       {
         l++;
       }
+    var l0 = l;
+    var more = at+1;
+    while (more < entryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
+      {
+        var lm = 0;
+        while (lm <  ENTRY_MC_STR_SIZE && getByte(more, ENTRY_MC_STR_OFFSET+lm) != 0)
+          {
+            lm++;
+            l++;
+          }
+        more++;
+      }
     var bs = new byte[l];
-    for (var i = 0; i<l; i++)
+    var i = 0;
+    while (i < len && getByte(at, off+i) != 0)
       {
         bs[i] = getByte(at, off+i);
+        i++;
+      }
+    more = at+1;
+    while (more < entryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
+      {
+        var lm = 0;
+        while (lm <  ENTRY_MC_STR_SIZE && getByte(more, ENTRY_MC_STR_OFFSET+lm) != 0)
+          {
+            bs[i] = getByte(more, ENTRY_MC_STR_OFFSET+lm);
+            lm++;
+            i++;
+          }
+        more++;
       }
     return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bs) /* NYI: could we do  b.subrange(..)? */).toString();
   }
@@ -422,6 +448,10 @@ class Data extends ANY implements Offsets
                   _gaps.add(names_processed);
                   break;
                 }
+              case ENTRY_KIND_MORE_CHARS:
+                {
+                  break;
+                }
               default:
                 {
                   System.err.println("*** unknown entry kind "+kind(names_processed)+" for entry #"+names_processed);
@@ -451,7 +481,15 @@ class Data extends ANY implements Offsets
 
   FeezeThread userEventThread(int at)
   {
-    return _threadsMap.get(_b.getInt(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_TID));
+    var num = _b.getShort(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_T_NUM) & 0xffff;
+    if (num >= 0 && num < _threads.size())
+      {
+        return _threads.get(num);
+      }
+    else
+      {
+        return null;
+      }
   }
 
 
@@ -484,7 +522,7 @@ class Data extends ANY implements Offsets
     if (PRECONDITIONS) require
       (kind(at) == ENTRY_KIND_USER_EVENT);
 
-    return _b.get(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_COLOR) & 0xff;
+    return _b.get(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_COLOR_BYTE) & 0xff;
   }
 
 

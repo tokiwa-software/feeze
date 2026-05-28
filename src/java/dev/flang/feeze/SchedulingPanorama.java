@@ -431,7 +431,8 @@ class SchedulingPanorama extends Panorama
    */
   long boot_ns_from_index(int  i          ) { if (ANY.PRECONDITIONS) ANY.require(_data.kind(i) == Offsets.ENTRY_KIND_SCHED_SWITCH ||
                                                                                  _data.kind(i) == Offsets.ENTRY_KIND_SCHED_WAKING ||
-                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_SCHED_WAKEUP    );
+                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_SCHED_WAKEUP ||
+                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_USER_EVENT    );
                                               return _data.nanosAtSwitch(i);
                                             }
   /**
