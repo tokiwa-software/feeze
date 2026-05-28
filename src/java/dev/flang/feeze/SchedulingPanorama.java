@@ -127,8 +127,8 @@ class SchedulingPanorama extends Panorama
 
   static Color light_gray = new Color(200,200,200);
 
-  static final Color DARK_GREEN = new Color(0,191,0);
-  static final Color VERY_DARK_GREEN = new Color(0,63,0);
+  static final Color DARK_GREEN = new Color(31,191,31);
+  static final Color VERY_DARK_GREEN = new Color(15,95,15);
   static final Color LILAC = new Color(81, 36, 128);
   //  static final Color[] PROCESS_COLS = new Color[] { peach, coral, pink, yellow, green, blue, purple, mizuiro, gray };
   // static final Color[] PROCESS_COLS = new Color[] { bgcol, Color.WHITE };
@@ -1338,39 +1338,36 @@ class SchedulingPanorama extends Panorama
     int to_a = actionAt(resource, r.x+r.width)+1;
     for (var a = from_a; a<to_a; a++)
       {
+        var state = stateAt(resource, a);
         if (a == 0)
           {
-            var state = resource.isStateChange(a) ? stateAt(resource, a).prev()
-                                                  : ThreadState.blocked;
+            var pstate = resource.isStateChange(a) ? state.prev()
+                                                   : ThreadState.blocked;
             var xl = nanos_to_posx(resource.nanosAt(a));
-            g.setColor(state._color);
-            _zoom.drawHLine(g, state.width(cpu), nanos_to_posx(0), y, xl);
+            g.setColor(pstate._color);
+            _zoom.drawHLine(g, pstate.width(cpu), nanos_to_posx(0), y, xl);
           }
         if (resource.isStateChange(a))
           {
-            var a1 = resource.nextStateChange(a);
-            var a2 = resource.nextStateChange(a1);
-
-            var nl  = resource.nanosAt(a);
-            var nr  = resource.nanosAt(a1);
-            var nnr = resource.nanosAt(a2);
-            if (ANY.CHECKS) ANY.check
-              (nl <= nr, nr <= nnr);   // event times should be monotonic increasing
-
+            var nl = resource.nanosAt(a);
+            var nr = resource.nanosAt(resource.nextStateChange(a));
             var xl = nanos_to_posx(nl);
             var xr = nanos_to_posx(nr);
 
-            var state = stateAt(resource, a);
-            if (posx_to_nanos(xl+2) < nnr)
+            if (xl < xr-zoom(1)) // stretch is at least zoom(1) pixels wide
               {
                 g.setColor(state._color);
                 _zoom.drawHLine(g,state.width(cpu),xl,y,xr-1);
                 blurredState = BlurredState.plain;
               }
-            else if (blurredUpToX <= xr)
+            else if (blurredUpToX < xr)
               {
                 g.setColor(VERY_DARK_GREEN);
-                _zoom.drawHLine(g,cpu ? _activeWidthCPU_ : _activeWidth_,xl,y,xr-1);
+                _zoom.drawHLine(g,
+                                cpu ? _activeWidthCPU_ : _activeWidth_,
+                                Math.min(xl, xr-zoom(1)/* do not allow blurred region below zoom(1) pixels */),
+                                y,
+                                xr-1);
                 blurredUpToX = xr;
                 blurredState = blurredState.blur();
               }
