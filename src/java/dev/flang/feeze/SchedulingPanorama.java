@@ -1570,21 +1570,18 @@ class SchedulingPanorama extends Panorama
 
             var from_gap = Math.max(0,gapAt(r.x)-1);
             var to_gap   = Math.min(_data._gaps.size()-1, gapAt(r.x+r.width)+1);
-            for(var a = from_gap; a <= to_gap; a++)
+            for (var a = from_gap; a <= to_gap; a++)
               {
                 var ar = _data._gaps.get(a);
                 var al = ar-1;
                 var xmin = nanos_to_posx(al >= 0 ? _data.nanosAtOrBefore(al) - _data.nanosMin() : 0);
-                var xmax = nanos_to_posx(          _data.nanosAtOrBefore(ar) - _data.nanosMin()    );
+                var xmax = nanos_to_posx(          _data.nanosAtSwitch(ar)   - _data.nanosMin()    );
                 if (xmax >= r.x && xmin <= r.x+r.width)
                   {
                     g.setColor(new Color(255,0,100,63));
-                    var y0 = threadY(0             ) - zoom(NORMAL_THREAD_SPACING);
-                    var y1 = threadY(numThreads()-1) + zoom(NORMAL_THREAD_SPACING);
-                    while (al >= 0 && _data.kind(al) != Offsets.ENTRY_KIND_SCHED_SWITCH)
-                      {
-                        al--;
-                      }
+                    var y0 = numCpus() > 0 ? cpusY()
+                                           : threadYUserTop(0);
+                    var y1 = threadYBottom(numThreads()-1);
                     g.fillRect(xmin,y0,xmax-xmin+1,y1-y0+1);
                   }
               }

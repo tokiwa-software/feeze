@@ -90,6 +90,7 @@ struct  shared_buffer
 #define ENTRY_KIND_THREAD        4
 #define ENTRY_KIND_USER_EVENT    7
 #define ENTRY_KIND_THREAD_NAME   8
+#define ENTRY_KIND_GAP           9  // A gap in the data due to ringbuffer overflow
 
 struct user_payload
 {
@@ -143,6 +144,9 @@ struct timed_payload
   uint32_t cpu_id;
   int32_t count; // counter to ensure correct order and detect missing events due to ring buffer overflow
 };
+struct gap_payload
+{
+};
 
 struct entry
 {
@@ -158,6 +162,7 @@ struct entry
     struct process_payload      p;
     struct thread_payload       t;
     struct thread_name_payload  tn;
+    struct gap_payload          gp;
   } payload;
 };
 
@@ -582,13 +587,18 @@ int handle_event(void *ctx, void *data, size_t data_sz)
           printf("shared mem buffer full\n"); // fflush(stdout);
           finishing = true;
         }
-      else if (e->event_kind == RB_EVENT_SCHED_SWITCH ||
+      else if (e->event_kind == RB_EVENT_GAP          ||
+               e->event_kind == RB_EVENT_SCHED_SWITCH ||
                e->event_kind == RB_EVENT_SCHED_WAKEUP ||
                e->event_kind == RB_EVENT_SCHED_WAKING ||
                e->event_kind == RB_EVENT_FUZION_USER     )
         {
           struct entry en;
-          if (e->event_kind == RB_EVENT_SCHED_SWITCH)
+          if (e->event_kind == RB_EVENT_GAP)
+            {
+              en.kind = ENTRY_KIND_GAP;
+            }
+          else if (e->event_kind == RB_EVENT_SCHED_SWITCH)
             {
               add_thread(e->old_pid, (char*) &e->old_name);
               add_thread(e->new_pid, (char*) &e->comm    );

@@ -83,4 +83,6 @@ public interface Offsets
   public static int ENTRY_KIND_THREAD        = 4;
   public static int ENTRY_KIND_USER_EVENT    = 7;
   public static int ENTRY_KIND_THREAD_NAME   = 8;
+  public static int ENTRY_KIND_GAP           = 9;
+
 }

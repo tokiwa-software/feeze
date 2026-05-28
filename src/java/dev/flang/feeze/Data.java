@@ -82,6 +82,7 @@ class Data extends ANY implements Offsets
 
   ArrayList<Integer> _gaps = new ArrayList<>();
 
+
   Data(MappedByteBuffer b)
   {
     _b = b;
@@ -238,6 +239,7 @@ class Data extends ANY implements Offsets
       case ENTRY_KIND_SCHED_WAKING:
       case ENTRY_KIND_SCHED_WAKEUP:
       case ENTRY_KIND_USER_EVENT  :
+      case ENTRY_KIND_GAP         :
         return ns(at);
       default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
       }
@@ -264,37 +266,6 @@ class Data extends ANY implements Offsets
       {
         return nanosAtSwitch(at);
       }
-  }
-
-  BitSet _hasCount = new BitSet();
-
-  int count(int at)
-  {
-   if (PRECONDITIONS) require
-      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
-                           1 << ENTRY_KIND_SCHED_WAKING |
-                           1 << ENTRY_KIND_SCHED_WAKEUP |
-                           1 << ENTRY_KIND_USER_EVENT   )) != 0);
-
-   var c = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_COUNT_OFFSET);
-   _hasCount.set(c);
-   return c;
-  }
-
-  boolean hasCount(int c)
-  {
-    return _hasCount.get(c);
-  }
-
-  boolean isGap(int at)
-  {
-    return switch (kind(at))
-      {
-      case ENTRY_KIND_SCHED_SWITCH,
-           ENTRY_KIND_SCHED_WAKING,
-           ENTRY_KIND_SCHED_WAKEUP -> at>0 && count(at)>0 && hasCount(count(at)) && !hasCount(count(at)-1);
-      default -> false;
-      };
   }
 
   byte getByte(int at, int off)
@@ -385,7 +356,6 @@ class Data extends ANY implements Offsets
                 }
               case ENTRY_KIND_SCHED_SWITCH:
                 {
-                  var ignore = count(names_processed);
                   var ot = thread(names_processed, true);
                   var nt = thread(names_processed, false);
                   ot.addAction(names_processed);
@@ -408,7 +378,6 @@ class Data extends ANY implements Offsets
               case ENTRY_KIND_SCHED_WAKING:
               case ENTRY_KIND_SCHED_WAKEUP:
                 {
-                  var ignore = count(names_processed);
                   var nt = affectedThreadAt(names_processed);
                   nt.addAction(names_processed);
                   var cpu_id = cpu_id(names_processed);
@@ -426,7 +395,6 @@ class Data extends ANY implements Offsets
                 }
               case ENTRY_KIND_USER_EVENT:
                 {
-                  var ignore = count(names_processed);
                   var t = userEventThread(names_processed);
                   if (t != null)
                     {
@@ -446,6 +414,11 @@ class Data extends ANY implements Offsets
                     {
                       System.err.println("*** illegal thread number "+num+" in ENTRY_KIND_THREAD_NAME for entry #"+names_processed);
                     }
+                  break;
+                }
+              case ENTRY_KIND_GAP:
+                {
+                  _gaps.add(names_processed);
                   break;
                 }
               default:
@@ -472,13 +445,6 @@ class Data extends ANY implements Offsets
     for (var n = 0; n < _threads.size(); n++)
       {
         _threads.get(n)._num = n;
-      }
-    for (var i = 0; i<names_processed; i++)
-      {
-        if (isGap(i))
-          {
-            _gaps.add(i);
-          }
       }
   }
 
