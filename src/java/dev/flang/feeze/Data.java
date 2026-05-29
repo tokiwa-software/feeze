@@ -106,13 +106,25 @@ class Data extends ANY implements Offsets
     return _b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_KIND_OFFSET) & 0xff;
   }
 
+  /**
+   * Does the event at given position come with a nanosecond timestamp?
+   *
+   * @param at a (legal) index
+   */
+  boolean isTimed(int at)
+  {
+    return ((1 << kind(at)) & ((1 << ENTRY_KIND_SCHED_SWITCH) |
+                               (1 << ENTRY_KIND_SCHED_WAKING) |
+                               (1 << ENTRY_KIND_SCHED_WAKEUP) |
+                               (1 << ENTRY_KIND_USER_EVENT  ) |
+                               (1 << ENTRY_KIND_GAP         )   )) != 0;
+  }
+
   long ns(int at)
   {
     if (PRECONDITIONS) require
-      (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_SWITCH |
-                           1 << ENTRY_KIND_SCHED_WAKING |
-                           1 << ENTRY_KIND_SCHED_WAKEUP |
-                           1 << ENTRY_KIND_USER_EVENT   )) != 0);
+      (isTimed(at));
+
     return _b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_NS_OFFSET);
   }
 
@@ -228,6 +240,7 @@ class Data extends ANY implements Offsets
     return 0;
   }
 
+
   /**
    * Get the time at the given SCHED_SWITCH entry.
    */
@@ -327,10 +340,7 @@ class Data extends ANY implements Offsets
   int cpu_id(int at)
   {
     if (PRECONDITIONS) require
-      (kind(at) == ENTRY_KIND_SCHED_SWITCH ||
-       kind(at) == ENTRY_KIND_SCHED_WAKING ||
-       kind(at) == ENTRY_KIND_SCHED_WAKEUP ||
-       kind(at) == ENTRY_KIND_USER_EVENT     );
+      (isTimed(at));
 
     return getInt(at, ENTRY_TIMED_CPU_ID_OFFSET);
   }

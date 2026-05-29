@@ -429,10 +429,7 @@ class SchedulingPanorama extends Panorama
   /**
    * Convert index to boot_ns (nanoseconds since boot time)
    */
-  long boot_ns_from_index(int  i          ) { if (ANY.PRECONDITIONS) ANY.require(_data.kind(i) == Offsets.ENTRY_KIND_SCHED_SWITCH ||
-                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_SCHED_WAKING ||
-                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_SCHED_WAKEUP ||
-                                                                                 _data.kind(i) == Offsets.ENTRY_KIND_USER_EVENT    );
+  long boot_ns_from_index(int  i          ) { if (ANY.PRECONDITIONS) ANY.require(_data.isTimed(i));
                                               return _data.nanosAtSwitch(i);
                                             }
   /**
