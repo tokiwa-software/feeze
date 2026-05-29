@@ -665,13 +665,10 @@ int add_thread(pid_t tid, char name[16])
     }
   if (num >= 0 && name[0]!=0 && strncmp(name, &thread_names[num*MAX_THREAD_NAME_LENGTH], sizeof(*name))!=0)
     {
-      // NYI: OPTIMIZATION: Suppress name setting for swapper thread!
       add_thread_name(num, name);
     }
   return num;
 }
-
-static int64_t cnt = 0;
 
 
 /**
