@@ -610,7 +610,7 @@ class SchedulingPanorama extends Panorama
               {
                 _threads = new ArrayList();
                 SystemUser u = null;
-                for (var t : _data._threads)
+                for (var t : _data._sortedThreads)
                   {
                     var u2 = t.user();
                     if (u != u2)
@@ -1249,7 +1249,7 @@ class SchedulingPanorama extends Panorama
    */
   ThreadState stateAt(ActionSubSet resource, int at)
   {
-    while (at >= 0 && !resource.isStateChange(at))
+    while (at >= 0 && !resource.isSched(at))
       {
         at--;
       }
@@ -1329,7 +1329,7 @@ class SchedulingPanorama extends Panorama
     int blurredUpToX = -1;
     int arrowDrawnAtX = -1;
     int from_a = actionAt(resource, r.x);
-    while (!resource.isStateChange(from_a) && from_a>0)
+    while (!resource.isSched(from_a) && from_a>0)
       {
         from_a--;
       }
@@ -1339,13 +1339,13 @@ class SchedulingPanorama extends Panorama
         var state = stateAt(resource, a);
         if (a == 0)
           {
-            var pstate = resource.isStateChange(a) ? state.prev()
-                                                   : ThreadState.blocked;
+            var pstate = resource.isSched(a) ? state.prev()
+                                             : ThreadState.blocked;
             var xl = nanos_to_posx(resource.nanosAt(a));
             g.setColor(pstate._color);
             _zoom.drawHLine(g, pstate.width(cpu), nanos_to_posx(0), y, xl);
           }
-        if (resource.isStateChange(a))
+        if (resource.isSched(a))
           {
             var nl = resource.nanosAt(a);
             var nr = resource.nanosAt(resource.nextStateChange(a));
@@ -1537,21 +1537,6 @@ class SchedulingPanorama extends Panorama
                       }
 
                     showRunning(g, t, y, r, false, toDo);
-
-                    /* disabled code to show the CPU we are running on. Better make this part of a tooltip!
-                       cpu = t.cpu_id(a);
-                            if (false &&
-                                cpu >= 0)
-                              {
-                                var str = Integer.toString(cpu);
-                                var str_w = _zoom.stringWidth(g, str);
-                                if (zoom(2)*2 + str_w <= xr-xl)
-                                  {
-                                    g.setColor(Color.black);
-                                    _zoom.drawString(g, str, xl + zoom(2), (int) (y + zoom(nextWidth * 0.3)));
-                                  }
-                              }
-                    */
                   }
                 else // not shown:
                   {

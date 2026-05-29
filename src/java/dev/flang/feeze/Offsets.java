@@ -37,56 +37,59 @@ public interface Offsets
 {
   public static int entry_start_offset = 0x20;
 
-  public static int ENTRY_KIND_OFFSET        = 0x00;
+  // struct entry as defined in feeze_record.c:
+  //
 
-  public static int ENTRY_TIMED_NS_OFFSET     = 0x10;
-  public static int ENTRY_TIMED_CPU_ID_OFFSET = 0x18;
+  // timed:
+  public static int ENTRY_TIMED_NS_AND_KIND_OFFSET = 0x00;
 
-  public static int ENTRY_SS_OLD_PID_OFFSET  = 0x08;
-  public static int ENTRY_SS_NEW_PID_OFFSET  = 0x0c;
+  public static int KIND_MASK = 0x0f;  // lowest four bits of first byte are used as kind
+  public static int NS_RSHIFT  = 4;    // lowest four bits of ns must be shifted out
 
-  public static int ENTRY_SW_CAUSING_PID_OFFSET  = 0x08;
-  public static int ENTRY_SW_AFFECTED_PID_OFFSET = 0x0c;
+  public static int ENTRY_SS_OLD_T_NUM_OFFSET      = 0x08;
+  public static int ENTRY_SS_NEW_T_NUM_OFFSET      = 0x0a;
+  public static int ENTRY_SS_CPU_ID_OFFSET         = 0x0c;
 
-  public static int ENTRY_U_UID_OFFSET       = 0x08;
-  public static int ENTRY_U_NAME_OFFSET      = 0x0c;
-  public static int ENTRY_U_NAME_LENGTH              = 0x10;
+  public static int ENTRY_SW_CAUSING_T_NUM_OFFSET  = 0x08;
+  public static int ENTRY_SW_AFFECTED_T_NUM_OFFSET = 0x0a;
+  public static int ENTRY_SW_CPU_ID_OFFSET         = 0x0c;
 
-  public static int ENTRY_P_PID_OFFSET       = 0x08;
-  public static int ENTRY_P_UID_OFFSET       = 0x0c;
-  public static int ENTRY_P_NAME_OFFSET      = 0x10;
-  public static int ENTRY_P_NAME_LENGTH              = 0x10;
+  public static int ENTRY_UE_T_NUM                 = 0x08;
+  public static int ENTRY_UE_COLOR_BYTE            = 0x0a;
+  public static int ENTRY_UE_PAD_BYTE              = 0x0b;
+  public static int ENTRY_UE_MSG                   = 0x0c;
+  public static int ENTRY_UE_MSG_SIZE                      = 0x04;
 
-  public static int ENTRY_T_TID_OFFSET       = 0x08;
-  public static int ENTRY_T_PID_OFFSET       = 0x0c;
-  public static int ENTRY_T_NAME_OFFSET      = 0x10;
-  public static int ENTRY_T_NAME_LENGTH              = 0x10;
+  // untimed:
+  public static int ENTRY_UNTIMED_KIND_OFFSET      = 0x00;
 
-  public static int ENTRY_TN_NUM_OFFSET      = 0x08;
-  public static int ENTRY_TN_NAME_OFFSET     = 0x10;
-  public static int ENTRY_TN_NAME_LENGTH             = 0x10;
+  public static int ENTRY_U_UID_OFFSET             = 0x08;
 
-  public static int ENTRY_UE_T_NUM           = 0x08;
-  public static int ENTRY_UE_COLOR_BYTE      = 0x0a;
-  public static int ENTRY_UE_PAD_BYTE        = 0x0b;
-  public static int ENTRY_UE_MSG             = 0x0c;
-  public static int ENTRY_UE_MSG_SIZE                = 0x04;
+  public static int ENTRY_P_PID_OFFSET             = 0x08;
+  public static int ENTRY_P_UID_OFFSET             = 0x0c;
 
-  public static int ENTRY_MC_STR_OFFSET      = 0x08;
-  public static int ENTRY_MC_STR_SIZE                = 0x18;
+  public static int ENTRY_T_TID_OFFSET             = 0x08;
+  public static int ENTRY_T_PID_OFFSET             = 0x0c;
 
-  public static int ENTRY_SIZE            = 0x20;
+  public static int ENTRY_TN_T_NUM_OFFSET          = 0x08;
+  public static int ENTRY_TN_NAME_OFFSET           = 0x0a;
+  public static int ENTRY_TN_NAME_LENGTH                   = 0x06;
 
-  public static int ENTRY_KIND_UNUSED        = 0;
-  public static int ENTRY_KIND_SCHED_SWITCH  = 1;
-  public static int ENTRY_KIND_SCHED_WAKING  = 5;
-  public static int ENTRY_KIND_SCHED_WAKEUP  = 6;
-  public static int ENTRY_KIND_USER          = 2;
-  public static int ENTRY_KIND_PROCESS       = 3;
-  public static int ENTRY_KIND_THREAD        = 4;
-  public static int ENTRY_KIND_USER_EVENT    = 7;
-  public static int ENTRY_KIND_THREAD_NAME   = 8;
-  public static int ENTRY_KIND_GAP           = 9;
+  public static int ENTRY_MC_STR_OFFSET            = 0x08;
+  public static int ENTRY_MC_STR_SIZE                      = 0x08;
+
+  public static int ENTRY_SIZE = 0x10;
+
+  public static int ENTRY_KIND_UNUSED        =  0;
+  public static int ENTRY_KIND_SCHED_SWITCH  =  1;
+  public static int ENTRY_KIND_SCHED_WAKING  =  5;
+  public static int ENTRY_KIND_SCHED_WAKEUP  =  6;
+  public static int ENTRY_KIND_USER          =  2;
+  public static int ENTRY_KIND_PROCESS       =  3;
+  public static int ENTRY_KIND_THREAD        =  4;
+  public static int ENTRY_KIND_USER_EVENT    =  7;
+  public static int ENTRY_KIND_THREAD_NAME   =  8;
+  public static int ENTRY_KIND_GAP           =  9;
   public static int ENTRY_KIND_MORE_CHARS    = 10;
 
 }

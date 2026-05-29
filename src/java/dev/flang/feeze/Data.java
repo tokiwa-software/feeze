@@ -59,7 +59,8 @@ class Data extends ANY implements Offsets
   ArrayList<SystemProcess> _processes = new ArrayList<>();
 
   TreeMap<Integer, SystemThread> _threadsMap = new TreeMap<>();
-  ArrayList<SystemThread> _threads = new ArrayList<>();
+  ArrayList<SystemThread> _unsortedThreads = new ArrayList<>();
+  ArrayList<SystemThread> _sortedThreads = new ArrayList<>();
 
   /**
    * Map from cpu id to Cpu
@@ -103,7 +104,19 @@ class Data extends ANY implements Offsets
 
   int kind(int at)
   {
-    return _b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_KIND_OFFSET) & 0xff;
+    return _b.get(entry_start_offset + at*ENTRY_SIZE + ENTRY_UNTIMED_KIND_OFFSET) & KIND_MASK;
+  }
+
+  /**
+   * Is the event at given position a scheduler event (switch, waking, wakup)?
+   *
+   * @param at a (legal) index
+   */
+  boolean isSched(int at)
+  {
+    return ((1 << kind(at)) & ((1 << ENTRY_KIND_SCHED_SWITCH) |
+                               (1 << ENTRY_KIND_SCHED_WAKING) |
+                               (1 << ENTRY_KIND_SCHED_WAKEUP)   )) != 0;
   }
 
   /**
@@ -125,31 +138,42 @@ class Data extends ANY implements Offsets
     if (PRECONDITIONS) require
       (isTimed(at));
 
-    return _b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_NS_OFFSET);
+    var ns_and_kind = _b.getLong(entry_start_offset + at*ENTRY_SIZE + ENTRY_TIMED_NS_AND_KIND_OFFSET);
+
+    // Only the upper 60 bits are used.
+    //
+    // NYI: HACK: Note that in case of an overflow in the ns value, we might see
+    // a sudden drop from almost 2^59 to -2^59. This, however, is much less
+    // likely than the representation of the time changing in the near future,
+    // so I just ignore this for now.
+    var ns = ns_and_kind >>> NS_RSHIFT;
+    return ns;
   }
 
   SystemThread thread(int at, boolean old)
   {
-    var tpid = old ? old_pid(at)
-                   : new_pid(at);
-    return _threadsMap.get(tpid);
+    var tnum = old ? old_tnum(at)
+                   : new_tnum(at);
+    var res = _unsortedThreads.get(tnum);
+    return res;
   }
 
-  private int old_pid(int at)
+  private int old_tnum(int at)
   {
     if (PRECONDITIONS) require
       (kind(at) == ENTRY_KIND_SCHED_SWITCH);
 
-    return _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_OLD_PID_OFFSET);
+    return getUShort(at, ENTRY_SS_OLD_T_NUM_OFFSET);
   }
 
-  private int new_pid(int at)
+  private int new_tnum(int at)
   {
     if (PRECONDITIONS) require
       (kind(at) == ENTRY_KIND_SCHED_SWITCH);
 
-    return _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SS_NEW_PID_OFFSET);
+    return getUShort(at, ENTRY_SS_NEW_T_NUM_OFFSET);
   }
+
 
   long byteSize()
   {
@@ -193,8 +217,8 @@ class Data extends ANY implements Offsets
       (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_WAKING |
                            1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
 
-    var tid = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SW_CAUSING_PID_OFFSET);
-    return _threadsMap.get(tid);
+    var tnum = getUShort(at, ENTRY_SW_CAUSING_T_NUM_OFFSET);
+    return _unsortedThreads.get(tnum);
   }
 
   SystemThread affectedThreadAt(int at)
@@ -203,8 +227,8 @@ class Data extends ANY implements Offsets
       (((1 << kind(at)) & (1 << ENTRY_KIND_SCHED_WAKING |
                            1 << ENTRY_KIND_SCHED_WAKEUP  )) != 0);
 
-    var tid = _b.getInt(entry_start_offset + at*ENTRY_SIZE + ENTRY_SW_AFFECTED_PID_OFFSET);
-    return _threadsMap.get(tid);
+    var tnum = getUShort(at, ENTRY_SW_AFFECTED_T_NUM_OFFSET);
+    return _unsortedThreads.get(tnum);
   }
 
   long nanosMin()
@@ -212,12 +236,9 @@ class Data extends ANY implements Offsets
     int at = 0;
     while (at < entryCount())
       {
-        switch (kind(at))
+        if (isTimed(at))
           {
-          case ENTRY_KIND_SCHED_SWITCH:
-          case ENTRY_KIND_SCHED_WAKING:
-          case ENTRY_KIND_SCHED_WAKEUP: return ns(at);
-          default: break;
+            return ns(at);
           }
         at++;
       }
@@ -228,12 +249,9 @@ class Data extends ANY implements Offsets
     int at = entryCount()-1;
     while (0 <= at)
       {
-        switch (kind(at))
+        if (isTimed(at))
           {
-          case ENTRY_KIND_SCHED_SWITCH:
-          case ENTRY_KIND_SCHED_WAKING:
-          case ENTRY_KIND_SCHED_WAKEUP: return ns(at);
-          default: break;
+            return ns(at);
           }
         at--;
       }
@@ -246,16 +264,10 @@ class Data extends ANY implements Offsets
    */
   long nanosAtSwitch(int at)
   {
-    switch (kind(at))
-      {
-      case ENTRY_KIND_SCHED_SWITCH:
-      case ENTRY_KIND_SCHED_WAKING:
-      case ENTRY_KIND_SCHED_WAKEUP:
-      case ENTRY_KIND_USER_EVENT  :
-      case ENTRY_KIND_GAP         :
-        return ns(at);
-      default: throw new Error("No nanos available for kind "+kind(at)+" at "+at);
-      }
+    if (PRECONDITIONS) require
+      (isTimed(at));
+
+    return ns(at);
   }
 
 
@@ -264,10 +276,7 @@ class Data extends ANY implements Offsets
    */
   long nanosAtOrBefore(int at)
   {
-    while (kind(at) != ENTRY_KIND_SCHED_SWITCH &&
-           kind(at) != ENTRY_KIND_SCHED_WAKING &&
-           kind(at) != ENTRY_KIND_SCHED_WAKEUP &&
-           at > 0)
+    while (!isTimed(at) && at > 0)
       {
         at--;
       }
@@ -285,10 +294,41 @@ class Data extends ANY implements Offsets
   {
     return _b.get(entry_start_offset + at*ENTRY_SIZE + off);
   }
+  int getUShort(int at, int off)
+  {
+    return _b.getShort(entry_start_offset + at*ENTRY_SIZE + off) & 0xFFFF;
+  }
   int getInt(int at, int off)
   {
     return _b.getInt(entry_start_offset + at*ENTRY_SIZE + off);
   }
+
+
+  /**
+   * Get name from zero or more entry of type ENTRY_KIND_MORE_CHARS following
+   * at.
+   *
+   * @return the string taken from following more chars entries.
+   */
+  String getName(int at)
+  {
+    return getName(at, Integer.MIN_VALUE, 0);
+  }
+
+
+  /**
+   * Get name from entry at using given off and maximum len[ght] and add zero or
+   * more entry of type ENTRY_KIND_MORE_CHARS following at.
+   *
+   * @param at an entry index
+   *
+   * @param off an offset within an entry or undefined if len==0
+   *
+   * @param len number of bytes to take from entry at off...
+   *
+   * @return the string taken from entry at at given offset and following more
+   * chars entries.
+   */
   String getName(int at, int off, int len)
   {
     var l = 0;
@@ -298,7 +338,7 @@ class Data extends ANY implements Offsets
       }
     var l0 = l;
     var more = at+1;
-    while (more < entryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
+    while (more < unprocessedEntryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
       {
         var lm = 0;
         while (lm <  ENTRY_MC_STR_SIZE && getByte(more, ENTRY_MC_STR_OFFSET+lm) != 0)
@@ -316,7 +356,7 @@ class Data extends ANY implements Offsets
         i++;
       }
     more = at+1;
-    while (more < entryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
+    while (more < unprocessedEntryCount() && kind(more) == ENTRY_KIND_MORE_CHARS)
       {
         var lm = 0;
         while (lm <  ENTRY_MC_STR_SIZE && getByte(more, ENTRY_MC_STR_OFFSET+lm) != 0)
@@ -340,9 +380,9 @@ class Data extends ANY implements Offsets
   int cpu_id(int at)
   {
     if (PRECONDITIONS) require
-      (isTimed(at));
+      (isSched(at));
 
-    return getInt(at, ENTRY_TIMED_CPU_ID_OFFSET);
+    return getUShort(at, ENTRY_SS_CPU_ID_OFFSET);
   }
 
   synchronized void processNewData()
@@ -358,7 +398,7 @@ class Data extends ANY implements Offsets
               case ENTRY_KIND_USER:
                 {
                   var uid  = getInt(names_processed, ENTRY_U_UID_OFFSET);
-                  var name = getName(names_processed, ENTRY_U_NAME_OFFSET, ENTRY_U_NAME_LENGTH);
+                  var name = getName(names_processed);
                   var user = new SystemUser(this, uid, name, _users.size());
                   _usersMap.put(uid, user);
                   _users.add(user);
@@ -368,7 +408,7 @@ class Data extends ANY implements Offsets
                 {
                   var pid  = getInt(names_processed, ENTRY_P_PID_OFFSET);
                   var uid  = getInt(names_processed, ENTRY_P_UID_OFFSET);
-                  var name = getName(names_processed, ENTRY_P_NAME_OFFSET, ENTRY_P_NAME_LENGTH);
+                  var name = getName(names_processed);
                   var user = _usersMap.get(uid);
                   if (user == null)
                     {
@@ -388,7 +428,8 @@ class Data extends ANY implements Offsets
                   var pid  = getInt(names_processed, ENTRY_T_PID_OFFSET);
                   var t = new SystemThread(this, tid, pid, _processesMap.get(pid));
                   _threadsMap.put(tid, t);
-                  _threads.add(t);
+                  t._originalNumber = _unsortedThreads.size();
+                  _unsortedThreads.add(t);
                   break;
                 }
               case ENTRY_KIND_SCHED_SWITCH:
@@ -441,10 +482,10 @@ class Data extends ANY implements Offsets
                 }
               case ENTRY_KIND_THREAD_NAME:
                 {
-                  var num = getInt(names_processed, ENTRY_TN_NUM_OFFSET);
-                  if (num >= 0 && num < _threads.size())
+                  var num = getUShort(names_processed, ENTRY_TN_T_NUM_OFFSET);
+                  if (num >= 0 && num < _unsortedThreads.size())
                     {
-                      var t = _threads.get(num);
+                      var t = _unsortedThreads.get(num);
                       t.addAction(names_processed);
                     }
                   else
@@ -470,7 +511,11 @@ class Data extends ANY implements Offsets
             names_processed++;
           }
       }
-    _threads.sort((t1,t2) ->
+    for (var t : _unsortedThreads)
+      {
+        _sortedThreads.add(t);
+      }
+    _sortedThreads.sort((t1,t2) ->
                   {
                     var u1 = t1._p._user._num;
                     var u2 = t2._p._user._num;
@@ -483,18 +528,18 @@ class Data extends ANY implements Offsets
                                     : Integer.compare(i1, i2);
                   });
     _cpus.sort((c1,c2) -> Integer.compare(c1._id, c2._id));
-    for (var n = 0; n < _threads.size(); n++)
+    for (var n = 0; n < _sortedThreads.size(); n++)
       {
-        _threads.get(n)._num = n;
+        _sortedThreads.get(n)._displayedNumber = n;
       }
   }
 
   FeezeThread userEventThread(int at)
   {
-    var num = _b.getShort(Feeze.entry_start_offset + at*ENTRY_SIZE + ENTRY_UE_T_NUM) & 0xffff;
-    if (num >= 0 && num < _threads.size())
+    var num = getUShort(at, ENTRY_UE_T_NUM);
+    if (num >= 0 && num < _unsortedThreads.size())
       {
-        return _threads.get(num);
+        return _unsortedThreads.get(num);
       }
     else
       {

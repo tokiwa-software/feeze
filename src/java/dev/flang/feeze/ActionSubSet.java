@@ -94,25 +94,16 @@ abstract class ActionSubSet extends ANY implements Offsets
   public abstract boolean wakesup(int i);
 
 
-  public boolean isStateChange(int i)
+  public boolean isSched(int i)
   {
-    var a = at(i);
-    return
-      switch (_data.kind(a))
-        {
-        case ENTRY_KIND_SCHED_SWITCH,
-          ENTRY_KIND_SCHED_WAKING,
-          ENTRY_KIND_SCHED_WAKEUP -> true;
-        default -> false;
-        };
+    return _data.isSched(at(i));
   }
 
 
   public int nextStateChange(int i)
   {
     var res = Math.min(numActions(), i+1);
-    while (res < numActions()  &&
-           !isStateChange(res)    )
+    while (res < numActions()  && !isSched(res))
       {
         res++;
       }

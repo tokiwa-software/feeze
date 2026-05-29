@@ -47,7 +47,8 @@ class SystemThread extends FeezeThread
   int _tid;
   int _pid;
   SystemProcess _p;
-  int _num;
+  int _originalNumber;  // the thread number used in the feeze recording data
+  int _displayedNumber; // the thread number used to display this thread
   boolean _swapper = false;
 
 
