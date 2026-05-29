@@ -122,8 +122,8 @@ abstract class ActionSubSet extends ANY implements Offsets
 
   public long nanosAt(int i)
   {
-    return i >= numActions() ? _data.nanosMax()
-                             : _data.nanosAtSwitch(at(i)) -_data.nanosMin();
+    return (i >= numActions() ? _data.nanosMax()
+                              : _data.nanosAtSwitch(at(i))) -_data.nanosMin();
   }
 
   public boolean isUserEvent(int i)
