@@ -316,15 +316,26 @@ class SchedulingPanorama extends Panorama
               }
             else
               {
-                cpu = tstate == ThreadState.running ||
-                      tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(ai)
-                    : tstate == ThreadState.waking        ? "CAUSED by " + _data.causingThreadAt(t.at(ai))+":" +_data.causingThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
-                    : tstate == ThreadState.wakesup       ? "CAUSED by " + _data.causingThreadAt(t.at(ai))+":" +_data.causingThreadAt(t.at(ai)) + " target CPU"+ t.cpu_id(ai)
-                    : "";
-                if (ai+1 < t.numActions() &&
-                    stateAt(t, ai+1) != ThreadState.error    )
+                var sched_i = ai;
+                while (sched_i >= 0 && !t.isSched(sched_i))
                   {
-                    var delta = _data.nanosAtSwitch(t.at(ai+1)) - _data.nanosAtSwitch(t.at(ai));
+                    sched_i--;
+                  }
+                cpu = sched_i < 0                         ? ""
+                    : tstate == ThreadState.running ||
+                      tstate == ThreadState.running_contd ? "ON CPU"        + t.cpu_id(sched_i)
+                    : tstate == ThreadState.waking        ? "CAUSED by " + _data.causingThreadAt(t.at(sched_i))+":" +_data.causingThreadAt(t.at(sched_i)) + " target CPU"+ t.cpu_id(sched_i)
+                    : tstate == ThreadState.wakesup       ? "CAUSED by " + _data.causingThreadAt(t.at(sched_i))+":" +_data.causingThreadAt(t.at(sched_i)) + " target CPU"+ t.cpu_id(sched_i)
+                    : "";
+                var next_sched_i = ai+1;
+                while (next_sched_i < t.numActions() && !t.isSched(next_sched_i))
+                  {
+                    next_sched_i++;
+                  }
+                if (next_sched_i < t.numActions()                 &&
+                    stateAt(t, next_sched_i) != ThreadState.error    )
+                  {
+                    var delta = _data.nanosAtSwitch(t.at(next_sched_i)) - _data.nanosAtSwitch(t.at(sched_i));
                     var dt = TimeAsString.getString(delta, 1);
                     duration = " for " + dt;
                   }
