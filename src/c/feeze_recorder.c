@@ -721,7 +721,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
               memcpy(&(str[0*16]), &e->comm    [0], 16);
               memcpy(&(str[1*16]), &e->old_name[0], 16);
               str[2*16] = 0;
-              add_thread(e->new_pid, "unknown");
+              add_thread(e->new_pid, "");
               kind = ENTRY_KIND_USER_EVENT;
               int num = thread_index(e->new_pid);
               if (num >= 0 && num <= 0xffff)
