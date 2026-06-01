@@ -44,7 +44,7 @@ char LICENSE[] SEC("license") = "GPL";
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
         __uint(max_entries, RING_BUF_SIZE);
-} rb SEC(".maps");
+} feeze_rec_rb SEC(".maps");
 
 
 /**
@@ -75,7 +75,7 @@ uint64_t overflow = OVFL_NONE;
 
 bool ringbuf_out0(struct event *e)
 {
-  if (bpf_ringbuf_output(&rb, e, sizeof(*e), 0)==0)
+  if (bpf_ringbuf_output(&feeze_rec_rb, e, sizeof(*e), 0)==0)
     {
       // ok
       return true;
@@ -108,7 +108,7 @@ void ringbuf_out(struct event *e)
       gap.old_pid = (pid_t) bpf_get_current_pid_tgid()&0xffffffff;
       gap.cpu_id = bpf_get_smp_processor_id();
       gap.ns = e->ns;
-      if (bpf_ringbuf_output(&rb, &gap, sizeof(gap), 0)==0)
+      if (bpf_ringbuf_output(&feeze_rec_rb, &gap, sizeof(gap), 0)==0)
         {
           // ok, so back to OVFL_NONE
           uint64_t res = __sync_bool_compare_and_swap(&overflow, OVFL_REPORTING, OVFL_NONE);

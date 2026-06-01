@@ -824,7 +824,6 @@ void *record(void *arg)
 {
   config = arg;
   const char *shmem_file_name = config->shmem_file_name;
-  fprintf(stderr, "--%s--\n",shmem_file_name);
   int entry_start_offset = (char*) &(shmem[1]) -
                            (char*) &(shmem[0]);
   int entry_size = (char *) &(((entry*) &(shmem[1]))[1]) -
@@ -928,7 +927,7 @@ void *record(void *arg)
     }
 
   /* Set up ring buffer polling */
-  rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);
+  rb = ring_buffer__new(bpf_map__fd(skel->maps.feeze_rec_rb), handle_event, NULL, NULL);
   if (!rb)
     {
       err = 1;
