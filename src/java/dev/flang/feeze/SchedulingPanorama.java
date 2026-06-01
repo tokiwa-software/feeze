@@ -869,7 +869,7 @@ class SchedulingPanorama extends Panorama
                 var yd = threadYDelta(i, r);
                 if (i > 0 && isFirstThreadOfProcess(i))
                   { // if previous thread is not shown, and current is a shown process, keep some distance for better appearance.
-                    y = Math.max(y, (int) _threadY[i-1] + yd/2*blendInFactor(i, r));
+                    y = Math.max(y, (int) _threadYBottom[i-1] + yd/2*blendInFactor(i, r));
                     _threadYBottom[i-1] = (int) y;
                   }
                 _threadYUserTop[i] = (int) y;
@@ -970,10 +970,12 @@ class SchedulingPanorama extends Panorama
   {
     var f = blendInFactor(i, r);
     _threadShown[i] = f==1;
+    var pf = i>0 && !isFirstThreadOfProcess(i) ? blendInFactor(i-1, r) : 1;
+    var nf = i<numThreads()-1                  ? blendInFactor(i+1, r) : 1;
     return
       //      (isFirstThreadOfUser(i) ? zoomedUserNameHeight() : 0) +
       //      (isFirstThreadOfProcess(i+1) ? zoom((double) NORMAL_THREAD_SPACING) : 0) +
-      (1-f) * zoom((double) MIN_THREAD_SPACING) +
+      (1-f) * zoom((double) MIN_THREAD_SPACING) * Math.max(pf, nf) +
       (  f) * zoom((double) NORMAL_THREAD_SPACING);
   }
 
@@ -1035,21 +1037,23 @@ class SchedulingPanorama extends Panorama
         var im = t.at(tim);   // index of action left  of r.x+rw
         var ir = t.at(tir);   // index of action right of r.x+rw
         f = 1;
-        if (il == im &&                           // no action within visible area
-            (index_to_posx(il) >= r.x ||
-             !stateAt(t, til)._isReadyOrRunning)  // and t is not running
-            )
+        if (il == im)  // no action within visible area
           {
-            int xl = index_to_posx(il);
-            int xr = index_to_posx(ir);
-            int transition = rw/2;  // width of the transition area during which we zoom threads in or out
-            var fl = xl <  r.x    ? (double) Math.max(0, transition - (r.x-xl)) / transition :
-                     xl <= r.x+rw ? 1
-                                  : 0;
-            var fr = xr >  r.x+rw ? (double) Math.max(0, transition - (xr-r.x-rw)) / transition :
-                     xr >= r.x    ? 1
-                                  : 0;
-            f = Math.max(fl,fr);
+            var sil = stateAt(t, til);
+            var s = index_to_posx(il) >= r.x+r.width ? sil.prev() : sil;
+            if (!s._isReadyOrRunning)  // and t is not running
+              {
+                int xl = index_to_posx(il);
+                int xr = index_to_posx(ir);
+                int transition = rw;  // width of the transition area during which we zoom threads in or out
+                var fl = xl <  r.x    ? (double) Math.max(0, transition - (r.x-xl)) / transition :
+                         xl <= r.x+rw ? 1
+                                      : 0;
+                var fr = xr >  r.x+rw ? (double) Math.max(0, transition - (xr-r.x-rw)) / transition :
+                         xr >= r.x    ? 1
+                                      : 0;
+                f = Math.max(fl,fr);
+              }
           }
       }
     return f;
@@ -1106,6 +1110,8 @@ class SchedulingPanorama extends Panorama
 
   /**
    * For a given x position, find the next action left of that position.
+   *
+   * @return a value between 0 and t.numActions()-1.
    */
   int actionAt(ActionSubSet t, int x)
   {
@@ -1549,11 +1555,13 @@ class SchedulingPanorama extends Panorama
 
                     showRunning(g, t, y, r, false, toDo);
                   }
-                else // not shown:
+                else  // not shown:
                   {
-                    g.setColor(gray);
-                    _zoom.drawHLine(g,1,nanos_to_posx(0),y,nanos_to_posx(xn-x0));
-                    continue;
+                    if (i == 0 || y != threadY(i-1))  // not collapsed with previous thread
+                      {
+                        g.setColor(gray);
+                        _zoom.drawHLine(g,1,nanos_to_posx(0),y,nanos_to_posx(xn-x0));
+                      }
                   }
               }
 
