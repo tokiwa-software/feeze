@@ -284,6 +284,11 @@ class ControlListener
                     }
                   _control._record.setEnabled(true);
                   p1.waitFor();
+                  var ec = p1.exitValue();
+                  if (ec != 0)
+                    {
+                      _control._recorderOutput.append("\n *** exit code " + ec + " ***\n");
+                    }
                 }
               catch (IOException ioe)
                 {
