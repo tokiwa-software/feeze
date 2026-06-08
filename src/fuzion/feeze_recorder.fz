@@ -1,0 +1,159 @@
+# This file is part of the Feeeze scheduling analysis tool.
+#
+# This code is is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 3 of the License.
+#
+# The Fuzion language implementation is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License along with The
+# Fuzion language implementation.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# -----------------------------------------------------------------------
+#
+#  Tokiwa Software GmbH, Germany
+#
+#  Source code of feeze_recorder.fz
+#
+#  @author Fridtjof Siebert (siebert@tokiwa.software)
+#
+# -----------------------------------------------------------------------
+
+
+
+# default name of shared memory file, used if not psecified explicity.
+#
+SHARED_MEM_NAME => "/tmp/feeze_events_recorder_data"
+
+# default size of shared memory, used if not specified explictly.
+#
+SHARED_MEM_SIZE => u64 64 * 1024 * 1024
+LIB_FUZION      => "/lib/libfuzion_rt.so"
+
+
+# native function to perform the eBPF events recording.
+#
+# This will not return if start was successufull
+#
+feeze_record(lib_fuzion lm.array u8,
+             shmem_size u64,
+             shmem_file_name lm.array u8) unit
+=>
+  native
+
+# native function to stop current call to `feeze_record`.
+#
+feeze_finish_record unit
+=>
+  native
+
+
+# local mutate used to create C strings
+#
+lm : mutate is
+
+
+# options effect to store the environment
+#
+options(lib_fuzion String,
+        shmem_name String,
+        shmem_size u64) : effect is
+
+  set_lib_fuzion(new_lib_fuzion String) =>  options new_lib_fuzion     shmem_name     shmem_size .replace
+  set_shmem_name(new_shmem_name String) =>  options     lib_fuzion new_shmem_name     shmem_size .replace
+  set_shmem_size(new_shmem_size u64   ) =>  options     lib_fuzion     shmem_name new_shmem_size .replace
+
+
+  public redef as_string String =>
+    "$lib_fuzion $shmem_name $shmem_size"
+
+
+# Check if `s` has the form `"<desired> '<value>'\n"`. If so, copy the
+# `<value>` part to `dst`.
+#
+# @return true iff `s` has the desired form and the `<value>` part fits into
+# `max_l` including the terminating 0.
+#
+get_option(s String, desired String, action String->unit)
+=>
+  if (s.starts_with desired &&
+      s.substring desired.byte_count .starts_with " '" &&
+      s.ends_with "'")
+    action (s.substring desired.byte_count+2 s.byte_count-1)
+    true
+  else
+    false
+
+
+# call `feeze_record` using shmem name, size and and lib_fuzion from `options.env`.
+#
+record ! options =>
+  lm ! ()->
+    l := options.env.lib_fuzion.as_c_string lm
+    s := options.env.shmem_name.as_c_string lm
+    feeze_record l options.env.shmem_size s
+
+
+# Process one command read from stdin
+#
+process_command(str)
+=>
+  if get_option str  "SHMEM_SIZE" name->
+      match name.parse_u64
+        l u64 =>
+          if      ! (l %% 4096)      then io.err.println "*** not 4K page ligned value $l for SHMEM_SIZE set by $name" # page aligned
+          else if l < 4096           then io.err.println "*** too small (<4K) value $l for SHMEM_SIZE set by $name"    # not too small
+          else if l >= (u64 1 << 31) then io.err.println "*** ridiculously large value $l for SHMEM_SIZE set by $name"
+          else
+            options.env.set_shmem_size l
+        e error => io.err.println "*** failed to parse integer argument '$name' for SHMEM_SIZE: $e"
+    true
+  else if get_option str "FUZION_HOME" name->
+      options.env.set_lib_fuzion "$name$LIB_FUZION"
+    true
+  else if get_option str "START" name->
+      say "START RECORDING TO '$name'"
+      options.env.set_shmem_name name
+      t := concur.threads.env.spawn record
+      # t.pthread_setname_np(rt,"feeze_record"); -- NYI setting thread names
+      ignore t
+    true
+  else if str = "STOP"
+    say "STOP RECORDING"
+    feeze_finish_record
+    true
+  else if str = "EXIT" || str = "QUIT"
+    say "*** exiting due to command $str!"
+    false
+  else
+    io.err.println "*** unknown command '$str'!"
+    false
+
+
+# In a loop, process command comming from stdin.
+#
+process_commands ! options =>
+
+  say "Waiting for commands...\n"
+
+  read(n i32) => (io.buffered lm).read_string n
+  match io.buffered lm .read_line
+    str String =>
+      process_command str
+    io.end_of_file =>
+      say "End of input reached. TERMINATING."
+      false
+
+
+# main code
+#
+say "running {envir.args.env[0]} (feeze_recorder.fz)"
+o := options "<FUZION_HOME>/$LIB_FUZION" SHARED_MEM_NAME SHARED_MEM_SIZE
+o ! () ->
+  lm ! ()->
+    (io.stdin.reader lm) ! ()->
+      while process_commands do

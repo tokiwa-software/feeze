@@ -37,7 +37,10 @@ BUILD_INCLUDE := $(BUILD_DIR)/include
 BUILD_CLASSES := $(BUILD_DIR)/classes
 
 # main name
-C_MAIN := feeze_recorder
+RECORDER_BIN := feeze_recorder
+BPF_MAIN := feeze_recorder
+C_MAIN := feeze_recorder_c
+FZ_MAIN := feeze_recorder_fz
 
 LIBBPF      := $(FEEZE_REPO)/libbpf
 LIBBPF_SRC  := $(LIBBPF)/src
@@ -94,7 +97,7 @@ CLANG_BPF_SYS_INCLUDES ?= $(shell clang -v -E - </dev/null 2>&1 \
 	| sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
 
 # Build BPF code
-$(BUILD_OBJ)/$(C_MAIN).bpf.o: src/bpf/$(C_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINUX_H)/README.md
+$(BUILD_OBJ)/$(BPF_MAIN).bpf.o: src/bpf/$(BPF_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINUX_H)/README.md
 	mkdir -p $(@D)
 	clang -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH)		                     \
                      -I$(FEEZE_SRC)/include                                                  \
@@ -110,11 +113,15 @@ $(BUILD_INCLUDE)/%.skel.h: $(BUILD_DIR)/obj/%.bpf.o
 	fi
 	$(BPFTOOL) gen skeleton $< > $@
 
-$(BUILD_DIR)/obj/$(C_MAIN).o: $(FEEZE_SRC)/c/$(C_MAIN).c $(BUILD_INCLUDE)/$(C_MAIN).skel.h
+$(BUILD_DIR)/obj/feeze_record.o: $(FEEZE_SRC)/c/feeze_record.c $(BUILD_INCLUDE)/$(BPF_MAIN).skel.h
 	mkdir -p $(@D)
 	clang -I$(FEEZE_SRC)/include -I$(BUILD_INCLUDE) -I$(LIBBPF_DEST) -o $@ -c $(filter %.c,$^)
 
-$(BUILD_DIR)/bin/$(C_MAIN): $(BUILD_DIR)/obj/$(C_MAIN).o $(LIBBPF_OBJ)
+$(BUILD_DIR)/obj/feeze_recorder.o: $(FEEZE_SRC)/c/feeze_recorder.c $(BUILD_INCLUDE)/$(BPF_MAIN).skel.h   # NYI: Cleanup skel.h, BPF include etc.
+	mkdir -p $(@D)
+	clang -I$(FEEZE_SRC)/include -I$(BUILD_INCLUDE) -I$(LIBBPF_DEST) -o $@ -c $(filter %.c,$^)
+
+$(BUILD_DIR)/bin/$(C_MAIN): $(BUILD_DIR)/obj/feeze_recorder.o $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ)
 	mkdir -p $(@D)
 	clang -g -Wall $^ -lelf -lz -o $@
 
@@ -132,6 +139,11 @@ else
   ELEVATE := pkexec
 endif
 
+$(BUILD_DIR)/bin/$(FZ_MAIN): $(FEEZE_SRC)/fuzion/feeze_recorder.fz $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ)
+	mkdir -p $(@D)
+	$(FUZION_HOME)//bin/fz -c $< "-CInclude=feeze_record.h" -CFlags="-I$(FEEZE_SRC)/include  $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ) -lelf -lz"  -o=$@
+
+
 # run the binary
 run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
 	$(ELEVATE) $(BUILD_DIR)/bin/$(C_MAIN)
@@ -141,11 +153,16 @@ $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	javac -d $(BUILD_CLASSES) $^ && touch $@
 
 build/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
+	mkdir -p $(@D)
 	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
 	chmod +x $@
 
+$(BUILD_DIR)/bin/$(RECORDER_BIN): $(BUILD_DIR)/bin/$(C_MAIN) $(BUILD_DIR)/bin/$(FZ_MAIN)
+	rm -f $@
+	ln -s $(FZ_MAIN) $@
+
 # run the GUI. NYI: to be replaced by fuzion implementation, make taret run_control
-run: build/bin/feeze $(BUILD_DIR)/bin/$(C_MAIN)
+run: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN) build/bin/feeze
 	./$^
 
 $(BUILD_DIR)/feeze.jmod: $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE)
