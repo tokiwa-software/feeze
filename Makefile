@@ -49,7 +49,7 @@ LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-BPFTOOL ?= /usr/lib/linux-tools-6.8.0-124/bpftool
+BPFTOOL ?= $(shell ls /usr/lib/linux-tools-6.8.0-*/bpftool | tail -n 1)
 
 JAVA_SOURCES := $(shell find $(FEEZE_SRC_JAVA) -name "*.java")
 JAVA_MAIN := Feeze
