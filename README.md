@@ -1,4 +1,5 @@
-# feeze
+# <img src="assets/logo.svg" alt="feeze logo" width="40" /> feeze
+
 Interactive graphical thread and scheduling analysis tool using eBPF.
 
 ## Goal
@@ -47,15 +48,15 @@ NYI: Documentation mostly missing
 
 ### Running and recording data
 
-Currently, there is no main control window, but two command line tools that can be started as follows: 
+Currently, there is no main control window, but two command line tools that can be started as follows:
 
-    > make run 
-    
+    > make run
+
 will start the graphical interface that will display the last recorded data. If not data is found, this will wait until some data was recorded via
 
     > make run_recorder
 
-which will record scheduling data using `sudo`, so you will need sudo rights and enter your password. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong. 
+which will record scheduling data using `sudo`, so you will need sudo rights and enter your password. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong.
 
 Scheduling data will be passed to the graphical tool via shared memory mapped from file `/tmp/feeze_events_recorder_data`. To record new data, first delete this file using
 
@@ -64,7 +65,7 @@ Scheduling data will be passed to the graphical tool via shared memory mapped fr
 ### Graphical Display
 #### The displayed data
 
-Threads are grouped by their processes. 
+Threads are grouped by their processes.
 
 Each thread is displayed as a horizontal line with the following properties
 
@@ -73,11 +74,11 @@ Each thread is displayed as a horizontal line with the following properties
 - think green for running threads
 - thick dark green for threads that switch between running/ready/blocked at a time scale below the displayed resolution
 
-Depending on the displayed area and time compression, inactive threads might get collapsed into thin lines. 
+Depending on the displayed area and time compression, inactive threads might get collapsed into thin lines.
 
 #### Scrolling through the display
 
-You have several options to scroll through the display: 
+You have several options to scroll through the display:
 
 - buttons `🠈🠊` / `🠊🠈` to compress or expand the time axis
 - buttons `+zoom` / `-zoom` to zoom in or out (zoom both axes)
@@ -88,14 +89,6 @@ You have several options to scroll through the display:
 - shift and left / middke mouse to zoom in / out, hold to auto-repeat
 - left mouse button and move to drag displayed area
 
-##### Key control 
+##### Key control
 
 - up/down/left/right arrow keys to move the displayed area
-
-  
-
-
-
-
-
-
