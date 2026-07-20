@@ -105,12 +105,12 @@ process_command(str)
   if get_option str  "SHMEM_SIZE" name->
       match name.parse_u64
         l u64 =>
-          if      ! (l %% 4096)      then io.err.println "*** not 4K page ligned value $l for SHMEM_SIZE set by $name" # page aligned
-          else if l < 4096           then io.err.println "*** too small (<4K) value $l for SHMEM_SIZE set by $name"    # not too small
-          else if l >= (u64 1 << 31) then io.err.println "*** ridiculously large value $l for SHMEM_SIZE set by $name"
+          if      ! (l %% 4096)      then io.Err.env.println "*** not 4K page ligned value $l for SHMEM_SIZE set by $name" # page aligned
+          else if l < 4096           then io.Err.env.println "*** too small (<4K) value $l for SHMEM_SIZE set by $name"    # not too small
+          else if l >= (u64 1 << 31) then io.Err.env.println "*** ridiculously large value $l for SHMEM_SIZE set by $name"
           else
             options.env.set_shmem_size l
-        e error => io.err.println "*** failed to parse integer argument '$name' for SHMEM_SIZE: $e"
+        e error => io.Err.env.println "*** failed to parse integer argument '$name' for SHMEM_SIZE: $e"
     true
   else if get_option str "FUZION_HOME" name->
       options.env.set_lib_fuzion "$name$LIB_FUZION"
@@ -118,7 +118,7 @@ process_command(str)
   else if get_option str "START" name->
       say "START RECORDING TO '$name'"
       options.env.set_shmem_name name
-      t := concur.threads.env.spawn record
+      t := concur.Threads.env.spawn record
       # t.pthread_setname_np(rt,"feeze_record"); -- NYI setting thread names
       ignore t
     true
@@ -130,7 +130,7 @@ process_command(str)
     say "*** exiting due to command $str!"
     false
   else
-    io.err.println "*** unknown command '$str'!"
+    io.Err.env.println "*** unknown command '$str'!"
     false
 
 
