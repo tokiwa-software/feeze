@@ -189,7 +189,11 @@ Here is an example
 
 Module identifiers to be used include
 
-- NYI: COMMENT: feeze modules need to be defined.
+- _bpf_ the bpf code of the feeze recorder
+- _rec_ the feeze recorder
+- _gui_ the feeze GUI
+- _doc_ the feeze documentation
+- _build_ the build infrastructure, makefile, etc.
 
 <!-- TODO
 ## Join The Project Team
