@@ -38,6 +38,26 @@ FEEZE_BIN="$(dirname "$(readlink -f "$0")")"
 : "${FEEZE_JAVA=java}"
 : "${FEEZE_JAVA_ADDITIONAL_CLASSPATH=""}"
 : "${FEEZE_JAVA_CLASSPATH="$FEEZE_HOME/classes"}"
+
+# output text explaining how to set path to 'java' command correctly:
+#
+fix_java="Please set \$PATH to include OpenJDK 25's 'bin' directory or set \$FEEZE_JAVA to the full path of the OpenJDK 25's 'java' command."
+
+which "$FEEZE_JAVA" >/dev/null || (
+    echo 1>&2 "*** java ($FEEZE_JAVA) not found in \$PATH."
+    echo 1>&2 "$fix_java"
+    exit 1)
+
+# Get main Java version number
+java_version=$($FEEZE_JAVA -version 2>&1 | head -n1 | grep -oE 'version "[0-9]+\.' | grep -oE '[0-9]+')
+
+# Check if version is at least 25
+if test "$java_version" -le 25;  then
+    echo 1>&2 "*** Java version of command '$FEEZE_JAVA' must be at least 25, it is $java_version."
+    echo 1>&2 "$fix_java"
+    exit 1
+fi
+
 if [ -n "$FEEZE_JAVA_ADDITIONAL_CLASSPATH" ]
 then
   FEEZE_JAVA_CLASSPATH="$FEEZE_JAVA_CLASSPATH:$FEEZE_JAVA_ADDITIONAL_CLASSPATH"
@@ -54,6 +74,6 @@ $FEEZE_JAVA \
   -Dfile.encoding=UTF-8 \
   -Dfeeze.home="$FEEZE_HOME" \
   -Dfeeze.command="$FEEZE_CMD" \
-  -p ${FEEZE_HOME} \
+  -p "${FEEZE_HOME}" \
   -m @MAIN_CLASS@ \
   "$@"
