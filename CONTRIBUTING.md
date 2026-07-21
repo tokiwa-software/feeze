@@ -189,6 +189,7 @@ Here is an example
 
 Module identifiers to be used include
 
+- _bin_ the shell scripts to run feeze
 - _bpf_ the bpf code of the feeze recorder
 - _rec_ the feeze recorder
 - _gui_ the feeze GUI
