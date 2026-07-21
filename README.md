@@ -9,6 +9,13 @@ performance related to scheduling of threads. The focus is on real-time
 behavior, i.e., finding reasons performance outliers and fixing these, but this
 can also help to improve general throughput.
 
+## Logo
+
+Still experimenting with logos, here are the current drafts
+
+- Screenshot extract: <img src="assets/logo.svg" alt="feeze logo" width="100">
+- Stylized Text:  <img src="assets/logo_text.svg" alt="feeze logo" width="160">
+
 ## Name `feeze`
 
 The name was chosen for its Scots meaning _to untwist; to unravel, as the end of
