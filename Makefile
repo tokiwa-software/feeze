@@ -25,10 +25,11 @@
 #
 # -----------------------------------------------------------------------
 
-
 FEEZE_REPO     := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 FEEZE_SRC      := $(FEEZE_REPO)/src
 FEEZE_SRC_JAVA := $(FEEZE_SRC)/java
+
+VERSION = $(shell cat $(FEEZE_REPO)/version.txt)
 
 # the build directory is relative to the current dir
 BUILD_DIR     := ./build
@@ -61,7 +62,7 @@ JAVA_MAIN_CLASS     := dev.flang.feeze.$(JAVA_MAIN)
 # build all binaries
 .PHONY: all
 
-all: $(BUILD_DIR)/bin/$(C_MAIN)
+all: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
 
 $(LIBBPF)/README.md $(VMLINUX_H)/README.md:
 	@echo $@
@@ -143,7 +144,6 @@ $(BUILD_DIR)/bin/$(FZ_MAIN): $(FEEZE_SRC)/fuzion/feeze_recorder.fz $(BUILD_DIR)/
 	mkdir -p $(@D)
 	$(FUZION_HOME)//bin/fz -c $< "-CInclude=feeze_record.h" -CFlags="-I$(FEEZE_SRC)/include  $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ) -lelf -lz"  -o=$@
 
-
 # run the binary
 run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
 	$(ELEVATE) $(BUILD_DIR)/bin/$(C_MAIN)
@@ -157,12 +157,12 @@ build/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
 	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
 	chmod +x $@
 
-$(BUILD_DIR)/bin/$(RECORDER_BIN): $(BUILD_DIR)/bin/$(C_MAIN) $(BUILD_DIR)/bin/$(FZ_MAIN)
+$(BUILD_DIR)/bin/$(RECORDER_BIN): $(BUILD_DIR)/bin/$(FZ_MAIN)
 	rm -f $@
 	ln -s $(FZ_MAIN) $@
 
 # run the GUI. NYI: to be replaced by fuzion implementation, make taret run_control
-run: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN) build/bin/feeze
+run: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
 	./$^
 
 $(BUILD_DIR)/feeze.jmod: $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE)
@@ -186,8 +186,12 @@ $(BUILD_DIR)/check_FUZION_HOME:
 run_control: $(BUILD_DIR)/generated/fuzion $(BUILD_DIR)/check_FUZION_HOME
 	FUZION_JAVA_ADDITIONAL_CLASSPATH=build/classes $(FUZION_HOME)/bin/fz -modules=java.base,java.datatransfer,java.xml,java.desktop -sourceDirs=src/fuzion,$(BUILD_DIR)/generated/fuzion feeze
 
-
 # remove all built files
 clean:
 	rm -rf $(BUILD_DIR)
 	find . -name "*~" -exec rm {} \;
+
+.PHONY: release
+release: clean all
+	rm -f feeze_$(VERSION).tar.gz
+	tar cfz feeze_$(VERSION).tar.gz --transform s/^build/feeze_$(VERSION)/ build
