@@ -13,8 +13,8 @@ can also help to improve general throughput.
 
 Still experimenting with logos, here are the current drafts
 
-- Screenshot extract: <img src="assets/logo.svg" alt="feeze logo" width="60">
-- Stylized Text:  <img src="assets/logo_text.svg" alt="feeze logo" width="60">
+- Screenshot extract: <img src="assets/logo.svg" alt="feeze logo" width="100">
+- Stylized Text:  <img src="assets/logo_text.svg" alt="feeze logo" width="160">
 
 ## Name `feeze`
 
