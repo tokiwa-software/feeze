@@ -37,6 +37,11 @@ BUILD_OBJ     := $(BUILD_DIR)/obj
 BUILD_INCLUDE := $(BUILD_DIR)/include
 BUILD_CLASSES := $(BUILD_DIR)/classes
 
+# fuzion tools
+FUZION_VERSION    ?= 0.097
+DOWNLOADED_FUZION ?= $(BUILD_DIR)/fuzion_$(FUZION_VERSION)
+FUZION_HOME       ?= $(DOWNLOADED_FUZION)
+
 # main name
 RECORDER_BIN := feeze_recorder
 BPF_MAIN := feeze_recorder
@@ -142,7 +147,7 @@ endif
 
 $(BUILD_DIR)/bin/$(FZ_MAIN): $(FEEZE_SRC)/fuzion/feeze_recorder.fz $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ) $(BUILD_DIR)/check_FUZION_HOME
 	mkdir -p $(@D)
-	$(FUZION_HOME)//bin/fz -c $< "-CInclude=feeze_record.h" -CFlags="-I$(FEEZE_SRC)/include  $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ) -lelf -lz"  -o=$@
+	$(FUZION_HOME)/bin/fz -c $< "-CInclude=feeze_record.h" -CFlags="-I$(FEEZE_SRC)/include  $(BUILD_DIR)/obj/feeze_record.o $(LIBBPF_OBJ) -lelf -lz"  -o=$@
 
 # run the binary
 run_recorder: $(BUILD_DIR)/bin/$(C_MAIN)
@@ -176,7 +181,15 @@ $(BUILD_DIR)/generated/fuzion: $(BUILD_DIR)/feeze.jmod $(BUILD_DIR)/check_FUZION
 	FUZION_JAVA_ADDITIONAL_CLASSPATH=$(BUILD_DIR)/classes $(FUZION_HOME)/bin/fzjava -to=$(BUILD_DIR)/generated/fuzion -modules=java.base  $^
 	touch $@
 
+# check if FUZION_HOME is set correctly. If it is not set at all, it will be
+# $(DOWNLOADED_FUZION). In this case, download the Fuzion release.
+#
 $(BUILD_DIR)/check_FUZION_HOME:
+	@if [ "$(FUZION_HOME)" = "$(DOWNLOADED_FUZION)" ]; then \
+	   if [ ! -e $(DOWNLOADED_FUZION) ]; then \
+	     (cd $(BUILD_DIR); wget https://github.com/tokiwa-software/fuzion/releases/download/v$(FUZION_VERSION)/fuzion_$(FUZION_VERSION).tar.gz; tar zxf fuzion_$(FUZION_VERSION).tar.gz); \
+	   fi; \
+	fi
 	@if [ ! -e $(FUZION_HOME)/bin/fz ]; then \
 	  echo "*** error: fz not found, please set env var FUZION_HOME to fuzion build directory. Clone and build https://github.com/tokiwa-software/fuzion first." >&2; \
 	  exit 1; \
@@ -194,4 +207,4 @@ clean:
 .PHONY: release
 release: clean all
 	rm -f feeze_$(VERSION).tar.gz
-	tar cfz feeze_$(VERSION).tar.gz --transform s/^build/feeze_$(VERSION)/ build
+	tar cfz feeze_$(VERSION).tar.gz --transform s/^build/feeze_$(VERSION)/ build/bin build/classes build/libbpf build/libbpf_obj
