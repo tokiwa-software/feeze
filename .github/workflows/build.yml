@@ -49,8 +49,8 @@ jobs:
 
     - name: checkout submodules
       run: |
-	git submodule init
-	git submodule update
+        git submodule init
+        git submodule update
 
     - name: build release
       run: make release
