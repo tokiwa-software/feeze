@@ -36,7 +36,8 @@ jobs:
     - name: install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev ruby-asciidoctor-pdf antlr4 asciidoc-base
+        sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev
+        sudo apt-get install libelf-dev
 
         # for DTRACE_PROBE
         # sudo apt-get install systemtap-sdt-dev
