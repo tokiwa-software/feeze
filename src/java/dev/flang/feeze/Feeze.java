@@ -187,7 +187,8 @@ public class Feeze extends ANY implements Offsets
   /**
    * Feeze application name to be displayed by desktop
    */
-  static String FEEZE_APP_NAME = "Feeze — Scheduling Tracer"
+  static String FEEZE_APP_NAME = "Feeze — Scheduling Tracer";
+
 
   /**
    * Install application Icon for Feeze
@@ -218,9 +219,9 @@ public class Feeze extends ANY implements Offsets
                                             ));
           }
       }
-    catch (Throwable t)
+    catch (IOException io)
       {
-        System.out.println(t);
+        System.err.println("*** warning: Attempt to create " + LOCAL_ICON_FILE + " in " + LOCAL_APPS_DIR + " resulted in " + io);
       }
   }
 
