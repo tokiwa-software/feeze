@@ -1,0 +1,50 @@
+# This file is part of the Feeze scheduling analysis tool.
+#
+# The Fuzion language implementation is free software: you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, version 3 of the License.
+#
+# The Fuzion language implementation is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License along with The
+# Fuzion language implementation.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# -----------------------------------------------------------------------
+#
+# Copyright (c) 2026, Tokiwa Software GmbH, Germany
+#
+# GitHub Actions workflow to build feeze
+#
+# -----------------------------------------------------------------------
+
+name: build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev ruby-asciidoctor-pdf antlr4 asciidoc-base
+
+        # for DTRACE_PROBE
+        # sudo apt-get install systemtap-sdt-dev
+
+        echo "JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64" >> $GITHUB_ENV
+        echo "/usr/lib/jvm/java-25-openjdk-amd64/bin" >> $GITHUB_PATH
+
+    - name: build release
+      run: make release
