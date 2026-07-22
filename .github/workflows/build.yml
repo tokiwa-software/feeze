@@ -38,6 +38,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev
         sudo apt-get install libelf-dev
+        sudo apt-get install bpftool
+        echo /usr/lib/linux-tools*
+        echo /usr/lib/linux-tools*/bpftool
 
         # for DTRACE_PROBE
         # sudo apt-get install systemtap-sdt-dev
