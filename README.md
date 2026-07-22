@@ -6,8 +6,27 @@ Interactive graphical thread and scheduling analysis tool using eBPF.
 
 The goal of _feeze_ is to provide an easy-to-use interactive tool to analyze
 performance related to scheduling of threads. The focus is on real-time
-behavior, i.e., finding reasons performance outliers and fixing these, but this
-can also help to improve general throughput.
+behavior, i.e., finding reasons for performance outliers and fixing these, but
+it is also a goal to help to improve general throughput.
+
+## Screenshot
+
+A picture says more than a thousand words, so let's start with a screenshot of a
+trace taken while a graphical Java application is running using wayland:
+
+<img src="doc/images/scheduing_data_window.png" alt="sample scheduling data window" width="1105" />
+
+What we see on the left is a list of all threads group by users (`fridi` is the
+user name here), processes and threads. The top shows the time axis in µsec
+resolution.  Threads that are running are shown as thick green bars, threads
+that are waking up or ready to run are thinner and blue while blocked threads
+are shown as thin gray lines.
+
+Threads that are waking up blocked threads have a blue arrow from the waking
+thread pointing to the woken up thread.
+
+Threads that are not active in or around the displayed time interval are
+collapsed to thin lines such to it is easier to focus on the active threads.
 
 ## Logo
 
@@ -64,7 +83,7 @@ will start the graphical interface that will display the last recorded data. If 
 
     > make run_recorder
 
-which will record scheduling data using `sudo`, so you will need sudo rights and enter your password. To see some fine-grain activity, this will start two threads that play high-frequence pthread_cond_signal/wait ping-pong.
+which will record scheduling data using `sudo`, so you will need sudo rights and enter your password. To see some fine-grain activity, this will start two threads that play high-frequency pthread_cond_signal/wait ping-pong.
 
 Scheduling data will be passed to the graphical tool via shared memory mapped from file `/tmp/feeze_events_recorder_data`. To record new data, first delete this file using
 
@@ -77,7 +96,7 @@ Threads are grouped by their processes.
 
 Each thread is displayed as a horizontal line with the following properties
 
-- thin grey for inactive threads in and aroudn the displayed area
+- thin Gray for inactive threads in and around the displayed area
 - thin blue for ready or blocked threads
 - think green for running threads
 - thick dark green for threads that switch between running/ready/blocked at a time scale below the displayed resolution
@@ -94,9 +113,11 @@ You have several options to scroll through the display:
 ##### Mouse control
 
 - left / middle mouse button to uncompress / expand the time axis, hold to auto-repeat
-- shift and left / middke mouse to zoom in / out, hold to auto-repeat
+- shift and left / middle mouse to zoom in / out, hold to auto-repeat
 - left mouse button and move to drag displayed area
 
 ##### Key control
 
 - up/down/left/right arrow keys to move the displayed area
+
+<!--  LocalWords:  img src feeze eBPF wayland fridi wiktionary fize vijs vis vītis feezes feezing feezed recurse submodules NYI sudo cond pthread uncompress -->
