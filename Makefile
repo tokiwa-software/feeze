@@ -157,7 +157,7 @@ $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	mkdir -p $(BUILD_CLASSES)
 	javac -d $(BUILD_CLASSES) $^ && touch $@
 
-$(BUILD_DIR)/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
+$(BUILD_DIR)/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod $(BUILD_DIR)/icon.svg
 	mkdir -p $(@D)
 	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
 	chmod +x $@
