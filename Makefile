@@ -71,7 +71,7 @@ all: $(BUILD_DIR)/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
 
 $(LIBBPF)/README.md $(VMLINUX_H)/README.md:
 	@echo $@
-	@echo "*** error: missing submodule libbpf and vmlinunx.h. Please do "
+	@echo "*** error: missing submodule libbpf and vmlinux.h. Please do "
 	@echo ""
 	@echo "  > git submodule init"
 	@echo "  > git submodule update"
