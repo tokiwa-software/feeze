@@ -38,7 +38,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev
         sudo apt-get install libelf-dev
-        sudo apt-get install bpftool
+        # sudo apt-get install bpftool
+        which bpftool || echo "no bpftool"
+        echo /usr/lib/linux-tools*
+        echo /usr/lib/linux-tools*/bpftool
+        sudo apt-get install linux-tools-common
+        which bpftool || echo "no bpftool"
         echo /usr/lib/linux-tools*
         echo /usr/lib/linux-tools*/bpftool
 
