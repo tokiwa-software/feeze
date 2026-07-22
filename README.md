@@ -15,6 +15,7 @@ Still experimenting with logos, here are the current drafts
 
 - Screenshot extract: <img src="assets/logo.svg" alt="feeze logo" width="100">
 - Stylized Text:  <img src="assets/logo_text.svg" alt="feeze logo" width="160">
+- Square of Stylized Text:  <img src="assets/logo_text_sq.svg" alt="feeze logo" width="160">
 
 ## Name `feeze`
 
