@@ -91,6 +91,7 @@ public class Feeze extends ANY implements Offsets
 
   public static void main(String[] args)
   {
+    installIcon();
     var c = new ControlFrame();
   }
 
@@ -164,6 +165,62 @@ public class Feeze extends ANY implements Offsets
                                       JOptionPane.YES_NO_OPTION) == 0)
       {
         System.exit(0);
+      }
+  }
+
+
+  /**
+   * user-local directory for application .desktop files for Ubuntu (and other
+   * distros, I hope):
+   */
+  static String LOCAL_APPS_DIR = ".local/share/applications/";
+
+
+  /**
+   * Feeze .desktop file name that will contain the icon
+   *
+   * @see https://specifications.freedesktop.org/desktop-entry/latest/
+   */
+  static String LOCAL_ICON_FILE = "dev-flang-feeze-Feeze.desktop";
+
+
+  /**
+   * Feeze application name to be displayed by desktop
+   */
+  static String FEEZE_APP_NAME = "Feeze — Scheduling Tracer"
+
+  /**
+   * Install application Icon for Feeze
+   */
+  static void installIcon()
+  {
+    try
+      {
+        var d = Path.of(System.getProperty("user.home")).resolve(LOCAL_APPS_DIR);
+        var p = d.resolve(LOCAL_ICON_FILE);
+        if (Files.exists(d) && !Files.exists(p))
+          {
+            var iconfile = Path.of(System.getProperty("feeze.home"))
+              .normalize()
+              .resolve("icon.svg");
+            Files.writeString(p,
+                              String.format("""
+                                            [Desktop Entry]
+                                            Encoding=UTF-8
+                                            Version=1.0
+                                            Type=Application
+                                            Terminal=false
+                                            Name=%s
+                                            Icon=%s
+                                            """,
+                                            FEEZE_APP_NAME,
+                                            iconfile
+                                            ));
+          }
+      }
+    catch (Throwable t)
+      {
+        System.out.println(t);
       }
   }
 

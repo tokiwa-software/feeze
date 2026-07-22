@@ -67,7 +67,7 @@ JAVA_MAIN_CLASS     := dev.flang.feeze.$(JAVA_MAIN)
 # build all binaries
 .PHONY: all
 
-all: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
+all: $(BUILD_DIR)/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
 
 $(LIBBPF)/README.md $(VMLINUX_H)/README.md:
 	@echo $@
@@ -157,17 +157,16 @@ $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	mkdir -p $(BUILD_CLASSES)
 	javac -d $(BUILD_CLASSES) $^ && touch $@
 
-build/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod
+$(BUILD_DIR)/icon.svg: assets/logo.svg
 	mkdir -p $(@D)
-	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
-	chmod +x $@
+	cp $^ $@
 
 $(BUILD_DIR)/bin/$(RECORDER_BIN): $(BUILD_DIR)/bin/$(FZ_MAIN)
 	rm -f $@
 	ln -s $(FZ_MAIN) $@
 
 # run the GUI. NYI: to be replaced by fuzion implementation, make taret run_control
-run: build/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
+run: $(BUILD_DIR)/bin/feeze $(BUILD_DIR)/bin/$(RECORDER_BIN)
 	./$^
 
 $(BUILD_DIR)/feeze.jmod: $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE)
@@ -197,7 +196,7 @@ $(BUILD_DIR)/check_FUZION_HOME:
 	touch $@
 
 run_control: $(BUILD_DIR)/generated/fuzion $(BUILD_DIR)/check_FUZION_HOME
-	FUZION_JAVA_ADDITIONAL_CLASSPATH=build/classes $(FUZION_HOME)/bin/fz -modules=java.base,java.datatransfer,java.xml,java.desktop -sourceDirs=src/fuzion,$(BUILD_DIR)/generated/fuzion feeze
+	FUZION_JAVA_ADDITIONAL_CLASSPATH=$(BUILD_DIR)/classes $(FUZION_HOME)/bin/fz -modules=java.base,java.datatransfer,java.xml,java.desktop -sourceDirs=src/fuzion,$(BUILD_DIR)/generated/fuzion feeze
 
 # remove all built files
 clean:
@@ -207,4 +206,4 @@ clean:
 .PHONY: release
 release: clean all
 	rm -f feeze_$(VERSION).tar.gz
-	tar cfz feeze_$(VERSION).tar.gz --transform s/^build/feeze_$(VERSION)/ build/bin build/classes build/libbpf build/libbpf_obj
+	tar cfz feeze_$(VERSION).tar.gz --transform s/^build/feeze_$(VERSION)/ build/bin build/classes build/libbpf build/libbpf_obj build/icon.svg
