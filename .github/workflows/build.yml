@@ -41,7 +41,7 @@ jobs:
         sudo apt-get install linux-tools-`uname -r`
         sudo apt-get install linux-cloud-tools-`uname -r`
         # sudo apt-get install linux-tools-`uname -r`-azure
-        # sudo apt-get install bpftool
+        sudo apt-get install bpftool
         which bpftool || echo "no bpftool"
         echo /usr/lib/linux-tools*
         echo /usr/lib/linux-tools/*
