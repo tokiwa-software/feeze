@@ -38,10 +38,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev
         sudo apt-get install libelf-dev
-        sudo apt-get install linux-tools-`uname -r`
-        sudo apt-get install linux-cloud-tools-`uname -r`
+        sudo apt-get install linux-tools-common
+        # sudo apt-get install linux-tools-`uname -r`
+        # sudo apt-get install linux-cloud-tools-`uname -r`
         # sudo apt-get install linux-tools-`uname -r`-azure
-        sudo apt-get install bpftool
+        # sudo apt-get install bpftool
         which bpftool || echo "no bpftool"
         echo /usr/lib/linux-tools*
         echo /usr/lib/linux-tools/*
