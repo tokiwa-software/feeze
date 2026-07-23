@@ -66,4 +66,6 @@ jobs:
         git submodule update
 
     - name: build release
-      run: make release
+      run: |
+        export BPFTOOL=/usr/lib/linux-tools/`uname -r`/bpftool
+        make release
