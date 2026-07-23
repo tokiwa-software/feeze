@@ -21,7 +21,7 @@
 #
 # -----------------------------------------------------------------------
 
-name: build
+name: build_ubuntu_latest
 
 on:
   workflow_dispatch:
