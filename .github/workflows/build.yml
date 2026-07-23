@@ -69,6 +69,6 @@ jobs:
 
     - name: build release
       run: |
-        export BPFTOOL=`echo /usr/lib/linux-tools/*/bpftool | xargs -n 1 echo  | tail -n1`
-        echo BPFTOOL is $BPFTOOL
+        #export BPFTOOL=`echo /usr/lib/linux-tools/*/bpftool | xargs -n 1 echo  | tail -n1`
+        #echo BPFTOOL is $BPFTOOL
         make release
