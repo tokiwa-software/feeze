@@ -50,6 +50,8 @@ jobs:
         # which bpftool || echo "no bpftool"
         # echo /usr/lib/linux-tools*
         # echo /usr/lib/linux-tools*/bpftool
+        echo /usr/lib/linux-tools/*
+        echo /usr/lib/linux-tools/*/bpftool
 
         # for DTRACE_PROBE
         # sudo apt-get install systemtap-sdt-dev
@@ -67,5 +69,6 @@ jobs:
 
     - name: build release
       run: |
-        export BPFTOOL=/usr/lib/linux-tools/`uname -r`/bpftool
+        export BPFTOOL=`echo /usr/lib/linux-tools/*/bpftool | xargs -n 1 echo  | tail -n1`
+        echo BPFTOOL is $BPFTOOL
         make release
