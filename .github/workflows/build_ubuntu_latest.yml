@@ -1,0 +1,78 @@
+# This file is part of the Feeze scheduling analysis tool.
+#
+# The Fuzion language implementation is free software: you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, version 3 of the License.
+#
+# The Fuzion language implementation is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License along with The
+# Fuzion language implementation.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# -----------------------------------------------------------------------
+#
+# Copyright (c) 2026, Tokiwa Software GmbH, Germany
+#
+# GitHub Actions workflow to build feeze for ubuntu_latest
+#
+# -----------------------------------------------------------------------
+
+name: build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install openjdk-25-jdk-headless libgc1 libgc-dev
+        sudo apt-get install libelf-dev
+        sudo apt-get install linux-tools-`uname -r`
+
+        # for DTRACE_PROBE
+        sudo apt-get install systemtap-sdt-dev
+
+        echo "JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64" >> $GITHUB_ENV
+        echo "/usr/lib/jvm/java-25-openjdk-amd64/bin" >> $GITHUB_PATH
+
+    - name: checkout repository
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+    - name: checkout submodules
+      run: |
+        git submodule init
+        git submodule update
+
+    - name: Ensure bpftool works on current kernel
+      # taken from https://github.com/actions/runner-images/issues/14203
+      shell: bash
+      run: |
+       set -euo pipefail
+       KREL="$(uname -r)"
+       if ! /usr/sbin/bpftool -V >/dev/null 2>&1; then
+         echo "\033[1;35m*** using workaround for bpftool ***\033[0m
+         if ! find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | grep -q .; then
+           sudo apt-get update
+           sudo apt-get install -y --no-install-recommends linux-tools-generic
+         fi
+         FALLBACK="$(find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | sort -V | tail -n 1)"
+         [[ -n "$FALLBACK" ]] || { echo "No bpftool payload found"; exit 1; }
+         sudo mkdir -p "/usr/lib/linux-tools/${KREL}"
+         sudo ln -sf "$FALLBACK" "/usr/lib/linux-tools/${KREL}/bpftool"
+       fi
+       /usr/sbin/bpftool -V
+
+    - name: build release
+      run: |
+        make release
