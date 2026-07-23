@@ -68,6 +68,24 @@ jobs:
         git submodule init
         git submodule update
 
+    - name: Ensure bpftool works on current kernel
+      # taken from https://github.com/actions/runner-images/issues/14203
+      shell: bash
+      run: |
+        set -euo pipefail
+        KREL="$(uname -r)"
+        sr/sbin/bpftool -V >/dev/null 2>&1; then
+        if ! find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | grep -q .; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends linux-tools-generic
+        fi
+        FALLBACK="$(find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | sort -V | tail -n 1)"
+        [[ -n "$FALLBACK" ]] || { echo "No bpftool payload found"; exit 1; }
+        sudo mkdir -p "/usr/lib/linux-tools/${KREL}"
+        sudo ln -sf "$FALLBACK" "/usr/lib/linux-tools/${KREL}/bpftool"
+      fi
+      /usr/sbin/bpftool -V
+
     - name: build release
       run: |
         #export BPFTOOL=`echo /usr/lib/linux-tools/*/bpftool | xargs -n 1 echo  | tail -n1`
