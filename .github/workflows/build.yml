@@ -55,7 +55,7 @@ jobs:
         echo /usr/lib/linux-tools/*/bpftool
 
         # for DTRACE_PROBE
-        # sudo apt-get install systemtap-sdt-dev
+        sudo apt-get install systemtap-sdt-dev
 
         echo "JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64" >> $GITHUB_ENV
         echo "/usr/lib/jvm/java-25-openjdk-amd64/bin" >> $GITHUB_PATH
