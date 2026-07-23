@@ -17,7 +17,7 @@
 #
 # Copyright (c) 2026, Tokiwa Software GmbH, Germany
 #
-# GitHub Actions workflow to build feeze
+# GitHub Actions workflow to build feeze for ubuntu 24
 #
 # -----------------------------------------------------------------------
 
@@ -61,6 +61,7 @@ jobs:
        set -euo pipefail
        KREL="$(uname -r)"
        if ! /usr/sbin/bpftool -V >/dev/null 2>&1; then
+         echo "\033[1;35m*** using workaround for bpftool ***\033[0m
          if ! find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | grep -q .; then
            sudo apt-get update
            sudo apt-get install -y --no-install-recommends linux-tools-generic
