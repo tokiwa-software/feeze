@@ -191,7 +191,7 @@ $(BUILD_DIR)/generated/fuzion: $(BUILD_DIR)/feeze.jmod $(BUILD_DIR)/check_FUZION
 $(BUILD_DIR)/check_FUZION_HOME:
 	@if [ "$(FUZION_HOME)" = "$(DOWNLOADED_FUZION)" ]; then \
 	   if [ ! -e $(DOWNLOADED_FUZION) ]; then \
-	     (cd $(BUILD_DIR); wget https://github.com/tokiwa-software/fuzion/releases/download/v$(FUZION_VERSION)/fuzion_$(FUZION_VERSION).tar.gz; tar zxf fuzion_$(FUZION_VERSION).tar.gz); \
+	     (cd $(BUILD_DIR); wget --no-verbose https://github.com/tokiwa-software/fuzion/releases/download/v$(FUZION_VERSION)/fuzion_$(FUZION_VERSION).tar.gz; tar zxf fuzion_$(FUZION_VERSION).tar.gz); \
 	   fi; \
 	fi
 	@if [ ! -e $(FUZION_HOME)/bin/fz ]; then \
