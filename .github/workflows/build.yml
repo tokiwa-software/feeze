@@ -44,11 +44,12 @@ jobs:
         # sudo apt-get install bpftool
         which bpftool || echo "no bpftool"
         echo /usr/lib/linux-tools*
+        echo /usr/lib/linux-tools/*
         echo /usr/lib/linux-tools*/bpftool
-        sudo apt-get install linux-tools-common
-        which bpftool || echo "no bpftool"
-        echo /usr/lib/linux-tools*
-        echo /usr/lib/linux-tools*/bpftool
+        # sudo apt-get install linux-tools-common
+        # which bpftool || echo "no bpftool"
+        # echo /usr/lib/linux-tools*
+        # echo /usr/lib/linux-tools*/bpftool
 
         # for DTRACE_PROBE
         # sudo apt-get install systemtap-sdt-dev
