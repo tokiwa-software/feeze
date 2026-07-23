@@ -34,7 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: show what we do
-      printf "\033[1;34mbuild feeze for `cat /etc/os-release | grep PRETTY_NAME= | sed -E 's .*"(.*)" \1 g'` `uname -r`\033[0m\n"
+      run: |
+        printf "\033[1;34mbuild feeze for `cat /etc/os-release | grep PRETTY_NAME= | sed -E 's .*"(.*)" \1 g'` `uname -r`\033[0m\n"
 
     - name: install dependencies
       run: |
