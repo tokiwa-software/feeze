@@ -1,0 +1,5 @@
+template: ../templates/index.html
+groups: all
+alternative.need.login: need_login.html
+alternative.access.denied: access_denied.html
+pages: pages
