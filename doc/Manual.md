@@ -8,12 +8,12 @@ Feeze is an interactive graphical thread and scheduling analysis tool using eBPF
 
 ### Feeze Releases Download
 
-Downloadable releases will be published on github under
+Downloadable releases will be published on GitHub under
 [feeze releases](https://github.com/tokiwa-software/feeze/releases).
 
 ### Installation from tarball
 
-Installing Feeze from a tarball gives you most control over where feeze will get
+Installing feeze from a tarball gives you more control over where feeze will get
 installed. You will need to unpack the archive using
 
     # tar zxf feeze_VERSION_TARGET.tar.gz
@@ -34,16 +34,16 @@ To run feeze, you will need to install
 
 * OpenJDK version 25 or later
 
-  The Java environment used for the GUI, must not be headless
+  The Java environment used for the GUI, it must not be headless
 
-  On ubuntu, do
+  On Ubuntu, do
 
       > sudo apt update
       > sudo apt install -y openjdk-25-jdk
 
   on Fedora,
 
-      > sudo yum install java-25-openjdk.x86_64
+      > sudo dnf install java-25-openjdk.x86_64
 
   To set the PATH, you might have to do
 
@@ -53,17 +53,19 @@ To run feeze, you will need to install
 
 * libgc1.so
 
-  To intall libgc.so, on unbuntu, do
+  To install libgc.so, on Ubuntu, do
 
-      > sudo apt-get update
-      > sudo apt-get install libgc
+      > sudo apt update
+      > sudo apt install libgc
 
   on Fedora, do
 
-      > sudo yum install libgc
+      > sudo dnf install libgc
 
   This is the Boehm-Demers-Weiser's GC that is currently used by Fuzion until an
   exact GC is available.
+
+* BPF tools
 
 ### Running
 
@@ -104,7 +106,7 @@ the button `Fuzion home directory`.
 ### Configuring shared memory communication
 
 The feeze recorder communicates with the feeze GUI via shared memory that is
-identified by a file name.  This name of this file must be given as `Shared
+identified by a file name.  The name of this file must be given as `Shared
 memory file`. This file may also be used to store scheduling data for later.
 
 Additionally, a maximum size of the shared memory may be given. Trace data may
@@ -119,11 +121,11 @@ in corrupting the displayed data.
 
 ### Recording Scheduling Data
 
-The `record` button or the key combination Alt-R will start recording scheduling
+The `record` button or the key combination <kbd>Alt</kbd>+<kbd>R</kbd> will start recording scheduling
 data.  While recording, a blue bar next to `Used Memory:` will display the
 amount of shared memory that is used by the recorded data.  This bar will grow
 continuously with the recording.  While recording, the `record` button is
-changed into a `stop` button. This button or hitting Alt-R again will stop the
+changed into a `stop` button. This button or hitting <kbd>Alt</kbd>+<kbd>R</kbd> again will stop the
 current recording.
 
 If not stopped explicitly, the recording will stop automatically once the shared
@@ -139,11 +141,11 @@ window.  See [Scheduling Data Window](#Scheduling-Data-Window) below for details
 
 The following key-combination may be used as shortcuts:
 
-* Alt-S for `start local recorder` button
+* <kbd>Alt</kbd>+<kbd>S</kbd> for `start local recorder` button
 
-* Alt-R for `record` button
+* <kbd>Alt</kbd>+<kbd>R</kbd> for `record` button
 
-* Alt-D for `show data` button
+* <kbd>Alt</kbd>+<kbd>D</kbd> for `show data` button
 
 ## Scheduling Data Window
 
@@ -233,7 +235,7 @@ The meaning of the colors in detail is
 
 * thick horizontal green bar: `running` a thread that is running on a CPU.
 
-Thread state changes performed that are caused by different threads are shown
+Thread state changes that are caused by different threads are shown
 using blue arrows from the thread performing the state change to the affected
 thread.
 
@@ -270,28 +272,28 @@ we are looking at `2s 167ms 974µs 688ns`.
 
 ### Scheduling Data Window Mouse Buttons
 
-#### time scale:
+#### Time Scale
 
-Expanding the time scale helps getting a more detailed view of what is
+Expanding the time scale helps to get a more detailed view of what is
 happening, while compressing gives an overview over longer periods.
 
-* left button click/hold: expand time scale one step / repeatedly
+* <kbd>Left Mouse Button</kbd> click/hold: expand time scale one step / repeatedly
 
-* middle button click/hold: compress time scale one step / repeatedly
+* <kbd>Middle Mouse Button</kbd> click/hold: compress time scale one step / repeatedly
 
-#### zoom
+#### Zoom
 
-Zoom help to increase or shrink the size of the overall displayed graph. This
+Zoom helps to increase or shrink the size of the overall displayed graph. This
 helps to get the best compromise between readability and amount of data
 displayed on the screen.  Note that zooming in our out does not change the
 detail of information that is shown, it only changes the size of the graphical
 elements.
 
-* shift + left button click/hold: zoom in one step / repeatedly
+* <kbd>Shift</kbd> + <kbd>Left Mouse Button</kbd> click/hold: zoom in one step / repeatedly
 
-* shift + middle button click/hold: zoom out one step / repeatedly
+* <kbd>Shift</kbd> + <kbd>Middle Mouse Button</kbd> click/hold: zoom out one step / repeatedly
 
-#### dragging
+#### Dragging
 
 Dragging the displayed data area allows moving along the time axis
 (horizontally) and the user/processes/threads axis (vertically):
@@ -302,17 +304,17 @@ Dragging the displayed data area allows moving along the time axis
 
 The following key-combination may be used as shortcuts:
 
-* Alt-X expand time one step
+* <kbd>Alt</kbd>+<kbd>X</kbd> expand time one step
 
-* Alt-C compress time one step
+* <kbd>Alt</kbd>+<kbd>C</kbd> compress time one step
 
-* Alt-Z zoom in one step
+* <kbd>Alt</kbd>+<kbd>Z</kbd> zoom in one step
 
-* Alt-O zoom out one step
+* <kbd>Alt</kbd>+<kbd>O</kbd> zoom out one step
 
-* Ctrl-W close window
+* <kbd>Ctrl</kbd>+<kbd>W</kbd> close window
 
-* Ctrl-Q quite feeze GUI
+* <kbd>Ctrl</kbd>+<kbd>Q</kbd> quite feeze GUI
 
 Have fun!
 
