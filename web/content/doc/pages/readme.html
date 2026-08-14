@@ -67,9 +67,13 @@ href="https://nasuguru.com/feeze/">フィーゼ</a>.</p>
 <li><p>OpenJDK version 25 or later, the Java environment used for the
 GUI</p></li>
 <li><p><code>libgc1.so</code> (e.g. package <code>libgc</code> on
-Ubuntu, <code>gc</code> on Arch) The Boehm-Demers-Weiser’s GC that is
-currently used by Fuzion until an exact GC is available</p></li>
-<li><p>BPF tools</p></li>
+Ubuntu, <code>libgc1</code> on Debian, <code>gc</code> on Arch) The
+Boehm-Demers-Weiser’s GC that is currently used by Fuzion until an exact
+GC is available</p></li>
+<li><p>bpftool for the currently running kernel</p></li>
+<li><p>libelf (required by libbpf)</p></li>
+<li><p>pandoc (only when changing the documentation, used to create html
+from markdown)</p></li>
 </ul>
 <h3 id="building-1">Building</h3>
 <p>To clone the repository, do not forget to provide
