@@ -1,0 +1,47 @@
+# This file is part of the Feeze scheduling analysis tool.
+#
+# This code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License, version 3,
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+# -----------------------------------------------------------------------
+#
+#  Copyright (c) 2025, Tokiwa Software GmbH, Germany
+#
+#  Source of machines.yml
+#
+#  Machine definitions for the feeze release test matrix
+#
+#
+# -----------------------------------------------------------------------
+release: "0.001dev"
+
+defaults:
+  memory: 2048
+  cpus: 2
+  gui: true
+
+machines:
+  - name: "ubuntu"
+    box: "bento/ubuntu-24.04"
+    family: "debian"
+    target: "Ubuntu_24"
+
+  - name: "debian"
+    box: "bento/debian-13"
+    family: "debian"
+    target: "Ubuntu_24"
+
+  - name: "fedora"
+    box: "bento/fedora-latest"
+    family: "fedora"
+    target: "Ubuntu_24"
