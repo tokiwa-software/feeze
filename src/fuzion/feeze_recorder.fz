@@ -157,5 +157,5 @@ say "running $(envir.Args.env[0]) (feeze_recorder.fz)"
 o := options "<FUZION_HOME>/$LIB_FUZION" SHARED_MEM_NAME SHARED_MEM_SIZE
 o ! () ->
   lm ! ()->
-    (io.stdin.reader lm) ! ()->
+    io.buffered lm .Reader.instate (io.stdin.reader lm) ()->
       while process_commands do
