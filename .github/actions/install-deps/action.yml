@@ -1,0 +1,8 @@
+name: Install feeze build dependencies
+description: JDK 25, libgc, libelf, linux-tools and pandoc
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: "$GITHUB_ACTION_PATH/install-deps.sh"

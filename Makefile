@@ -53,7 +53,10 @@ LIBBPF_SRC  := $(LIBBPF)/src
 LIBBPF_OBJ  := $(BUILD_DIR)/libbpf_obj/libbpf.a
 LIBBPF_DEST := $(BUILD_DIR)/libbpf
 VMLINUX_H   := $(FEEZE_REPO)/vmlinux.h
-ARCH := $(shell uname -m | sed 's/x86_64/x86/')
+# Architecture names for the BPF target macro and for the pre-generated
+# vmlinux.h, which are spelled differently from uname -m.
+ARCH         := $(shell uname -m | sed -e 's/x86_64/x86/' -e 's/aarch64/arm64/')
+VMLINUX_ARCH := $(shell uname -m | sed -e 's/aarch64/arm64/')
 
 BPFTOOL ?= /usr/sbin/bpftool
 
@@ -111,7 +114,7 @@ $(BUILD_OBJ)/$(BPF_MAIN).bpf.o: src/bpf/$(BPF_MAIN).bpf.c $(LIBBPF_OBJ) $(VMLINU
 	mkdir -p $(@D)
 	clang -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH)		                     \
                      -I$(FEEZE_SRC)/include                                                  \
-		     -Ivmlinux.h/include/x86_64/ -I$(LIBBPF_DEST) $(CLANG_BPF_SYS_INCLUDES)  \
+		     -Ivmlinux.h/include/$(VMLINUX_ARCH)/ -I$(LIBBPF_DEST) $(CLANG_BPF_SYS_INCLUDES)  \
                      -c $(filter %.c,$^) -o $@
 
 # Generate BPF skeletons
@@ -231,6 +234,10 @@ run_control: $(BUILD_DIR)/generated/fuzion $(BUILD_DIR)/check_FUZION_HOME
 clean:
 	rm -rf $(BUILD_DIR)
 	find . -name "*~" -exec rm {} \;
+
+# distribution packages (tar.gz, deb, rpm)
+#
+include $(FEEZE_REPO)/packaging.mk
 
 .PHONY: release
 release: clean all

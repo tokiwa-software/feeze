@@ -1,0 +1,193 @@
+# This file is part of the feeze scheduling analysis tool.
+#
+# This code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License, version 3,
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+# -----------------------------------------------------------------------
+#
+#  Copyright (c) 2025, Tokiwa Software GmbH, Germany
+#
+#  Source of package.yml
+#
+#  This is the GitHub Actions workflow building feeze packages for
+#  linux/amd64 and linux/arm64
+#
+# -----------------------------------------------------------------------
+
+name: Build feeze packages
+
+on:
+  push:
+    branches: [packages-ci]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  facts:
+    name: Facts
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.f.outputs.version }}
+      release-kind: ${{ steps.f.outputs.release-kind }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Determine version and release kind
+        id: f
+        run: |
+          set -eu
+          # If this is a tag launch, the version is taken from the tag name,
+          # otherwise from version.txt and the build is treated as a snapshot.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >>"$GITHUB_OUTPUT"
+            echo "release-kind=release"         >>"$GITHUB_OUTPUT"
+          else
+            echo "version=$(cat version.txt)"   >>"$GITHUB_OUTPUT"
+            # A single moving tag: the release is replaced on every push
+            echo "release-kind=snapshot"         >>"$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # One native runner per architecture.
+  # All packaging logic lives in packaging.mk;
+  # this job only provides the toolchain and calls make.
+  # ---------------------------------------------------------------------------
+  package-linux:
+    name: Package for Linux (${{ matrix.arch }})
+    needs: [facts]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04,     elf_arch: x86-64 }
+          - { arch: arm64, runner: ubuntu-24.04-arm, elf_arch: aarch64 }
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: ./.github/actions/install-deps
+
+
+      - name: Ensure bpftool works on current kernel
+      # taken from https://github.com/actions/runner-images/issues/14203
+        shell: bash
+        run: |
+          set -euo pipefail
+          KREL="$(uname -r)"
+          if ! /usr/sbin/bpftool -V >/dev/null 2>&1; then
+             printf "\033[1;35m*** using workaround for bpftool ***\033[0m\n"
+             if ! find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | grep -q .; then
+               sudo apt-get update
+               sudo apt-get install -y --no-install-recommends linux-tools-generic
+             fi
+             FALLBACK="$(find /usr/lib -type f -name bpftool -perm -111 2>/dev/null | sort -V | tail -n 1)"
+             [[ -n "$FALLBACK" ]] || { echo "No bpftool payload found"; exit 1; }
+             sudo mkdir -p "/usr/lib/linux-tools/${KREL}"
+             sudo ln -sf "$FALLBACK" "/usr/lib/linux-tools/${KREL}/bpftool"
+          fi
+          /usr/sbin/bpftool -V
+
+
+      # Build only what is shipped: `make all` also runs the pandoc manual rules
+      - name: Build
+        run: |
+            make -j"$(nproc)" \
+            build/bin/feeze \
+            build/bin/feeze_desktop \
+            build/bin/feeze_recorder
+
+
+      - name: Create packages
+        run: make packages
+
+      - name: Test packages in clean containers
+        run: |
+          set -eux
+          for image in debian:trixie fedora:43; do
+            echo "== $image =="
+            docker run --rm \
+              -v "$PWD:/pkg" \
+              -v "$PWD/.github/actions/test-package/test-package.sh:/test-package.sh:ro" \
+              -w /pkg "$image" sh /test-package.sh
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-linux-${{ matrix.arch }}
+          path: |
+            *.tar.gz
+            *.deb
+            *.rpm
+          if-no-files-found: error
+          retention-days: 5
+
+  release:
+    name: Publish release
+    # Everything except pull requests: forks do not get contents:write and the
+    # upload would fail with 403.
+    if: github.event_name != 'pull_request'
+    needs: [facts, package-linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-linux-*
+          merge-multiple: true
+          path: artifacts
+
+      - name: Refuse to publish a partial set
+        run: |
+          set -eu
+          for p in '*-amd64.deb' '*-arm64.deb' '*-amd64.rpm' '*-arm64.rpm' \
+                   '*-amd64.tar.gz' '*-arm64.tar.gz'; do
+            ls artifacts/$p >/dev/null 2>&1 \
+              || { echo "::error::missing artifact matching $p"; exit 1; }
+          done
+
+      - name: Choose tag name
+        id: tag
+        run: |
+          set -eu
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "name=$GITHUB_REF_NAME" >>"$GITHUB_OUTPUT"
+            echo "pre=false"             >>"$GITHUB_OUTPUT"
+            echo "latest=true"           >>"$GITHUB_OUTPUT"
+          else
+            # A single moving tag: the release is replaced on every push instead
+            # of accumulating one entry per commit.
+            echo "name=snapshot"          >>"$GITHUB_OUTPUT"
+            echo "pre=true"              >>"$GITHUB_OUTPUT"
+            echo "latest=false"          >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
+        with:
+          tag: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name == 'snapshot' && format('snapshot {0} ({1})', needs.facts.outputs.version, github.sha) || steps.tag.outputs.name }}
+          prerelease: ${{ steps.tag.outputs.pre }}
+          makeLatest: ${{ steps.tag.outputs.latest }}
+          artifacts: artifacts/*
+          generateReleaseNotes: false
+          token: ${{ secrets.GITHUB_TOKEN }}

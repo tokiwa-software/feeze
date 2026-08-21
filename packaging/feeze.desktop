@@ -1,0 +1,40 @@
+# This file is part of the Feeze scheduling analysis tool.
+#
+# This code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License, version 3,
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+# -----------------------------------------------------------------------
+#
+#  Copyright (c) 2025, Tokiwa Software GmbH, Germany
+#
+#  Source of feeze.desktop
+#
+#  This is the XDG desktop entry installed by packaging.mk
+#
+# -----------------------------------------------------------------------
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=feeze
+GenericName=Thread and scheduling analysis
+Comment=Interactive graphical thread and scheduling analysis tool using eBPF
+Exec=feeze
+Icon=feeze
+# The recorder may prompt for elevated privileges and prints diagnostics on
+# stderr, so keep a terminal attached.
+Terminal=true
+Categories=Development;Profiling;
+Keywords=eBPF;scheduler;threads;tracing;latency;
+# Matches the WM_CLASS that the JVM derives from the main class, so the window
+# is grouped with this launcher instead of appearing as a generic Java app.
+StartupWMClass=dev-feeze-Feeze

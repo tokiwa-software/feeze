@@ -1,0 +1,46 @@
+#!/bin/sh
+# This file is part of the feeze scheduling analysis tool.
+#
+# This code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License, version 3,
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+# -----------------------------------------------------------------------
+#
+#  Copyright (c) 2025, Tokiwa Software GmbH, Germany
+#
+#  Source of feeze-postinst
+#
+#  This is the shared post-install hook used by both the deb and the rpm
+#
+# -----------------------------------------------------------------------
+# Shared post-install hook, invoked from DEBIAN/postinst and from %post in the
+# spec so that deb and rpm cannot drift apart.
+set -eu
+
+REC=/usr/share/feeze/bin/feeze_recorder
+
+# Loading BPF programs and reading perf events needs CAP_BPF + CAP_PERFMON;
+# pinning maps needs CAP_SYS_RESOURCE on older kernels. Granting them here
+# avoids running the recorder as root. Failure is not fatal: sudo still works.
+setcap cap_bpf,cap_perfmon,cap_sys_resource+ep "$REC" \
+  || echo "feeze: could not set capabilities on $REC, run it as root" >&2
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications || true
+fi
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+fi
+
+exit 0

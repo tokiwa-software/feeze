@@ -70,8 +70,8 @@ on Fedora, do
 
   > sudo yum install libgc
 "
-
-which "$FEEZE_JAVA" >/dev/null || (
+# Use 'command -v' instead of 'which' for compatibility with Fedora/RHEL
+command -v "$FEEZE_JAVA" >/dev/null || (
     echo 1>&2 "*** java ($FEEZE_JAVA) not found in \$PATH."
     echo 1>&2 "$fix_java"
     exit 1)

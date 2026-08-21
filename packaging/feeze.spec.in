@@ -1,0 +1,98 @@
+# This file is part of the feeze scheduling analysis tool.
+#
+# This code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License, version 3,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License, version 3,
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+# -----------------------------------------------------------------------
+#
+#  Copyright (c) 2025, Tokiwa Software GmbH, Germany
+#
+#  Source of feeze.spec.in
+#
+#  This is the rpm spec template used by packaging.mk
+#
+# -----------------------------------------------------------------------
+#
+# Nothing is compiled here: %install only copies the tree that packaging.mk
+# already staged, handed over via --define "pkgroot ...".
+
+# The payload consists of prebuilt binaries. Disable debuginfo extraction and
+# the brp-* post-install scripts, which are unavailable when rpmbuild runs on a
+# Debian or Ubuntu host.
+
+%global debug_package     %{nil}
+%global __os_install_post %{nil}
+%global _build_id_links   none
+
+Name:           @NAME@
+Version:        @VERSION@
+Release:        @RELEASE@
+Summary:        @SUMMARY@
+License:        @LICENSE@
+URL:            @HOMEPAGE@
+
+# Automatic soname dependency generation on a Debian host emits provides that
+# do not exist on Fedora or RHEL, so requirements are listed by hand.
+AutoReqProv:    no
+# A full JDK/JRE, not java-headless: the interface is Swing and needs
+# java.desktop. --enable-preview binds the class files to exactly Java 25.
+Requires:       java-25-openjdk
+Requires:       gc
+Requires:       elfutils-libelf
+Requires:       zlib
+Requires:       libcap
+
+%description
+feeze records scheduling events with a BPF CO-RE program and displays
+per-thread run, ready and blocked state on a microsecond time axis, including
+wakeup arrows between threads.
+
+Recording requires a kernel with BTF support (/sys/kernel/btf/vmlinux) and the
+CAP_BPF and CAP_PERFMON capabilities, which the package grants to the recorder
+on installation. If that fails, run feeze_recorder as root.
+
+%prep
+# nothing to do, the tree is pre-staged
+
+%build
+# nothing to do, the binaries are pre-built
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}
+cp -a %{pkgroot}/. %{buildroot}/
+
+%post
+setcap cap_bpf,cap_perfmon,cap_sys_resource+ep @PREFIX@/bin/feeze_recorder \
+  || echo "feeze: could not set capabilities, run the recorder as root" >&2
+command -v update-desktop-database >/dev/null 2>&1 && \
+  update-desktop-database -q /usr/share/applications || :
+command -v gtk-update-icon-cache >/dev/null 2>&1 && \
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+
+%postun
+if [ $1 -eq 0 ] ; then
+  command -v update-desktop-database >/dev/null 2>&1 && \
+    update-desktop-database -q /usr/share/applications || :
+  command -v gtk-update-icon-cache >/dev/null 2>&1 && \
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+fi
+
+%files
+/usr/bin/feeze
+/usr/bin/feeze_recorder
+@PREFIX@
+/usr/share/applications/feeze.desktop
+/usr/share/icons/hicolor/scalable/apps/feeze.svg
+
+%changelog
