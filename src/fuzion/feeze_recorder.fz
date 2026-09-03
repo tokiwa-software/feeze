@@ -142,7 +142,7 @@ process_commands ! options =>
 
   say "ready..."
 
-  read(n i32) => (io.buffered lm).read_string n
+  read(n i64) => (io.buffered lm).read_string n
   match io.buffered lm .read_line
     str String =>
       process_command str
