@@ -25,7 +25,7 @@ means `amd64` and `aarch64` means `arm64`.
 
 On Debian, Ubuntu and derivatives, install the package using
 
-    > sudo apt install ./feeze-0.001dev-amd64.deb
+    > sudo apt install ./feeze-0.001-amd64.deb
 
 Keep the leading `./` and use `apt`, not `dpkg -i`: `apt` resolves the
 dependencies declared by the package, `dpkg` does not and would leave feeze
@@ -35,11 +35,11 @@ unconfigured.
 
 On Fedora and RHEL, install the package using
 
-    > sudo dnf install ./feeze-0.001dev-amd64.rpm
+    > sudo dnf install ./feeze-0.001-amd64.rpm
 
 on openSUSE, use
 
-    > sudo zypper install ./feeze-0.001dev-amd64.rpm
+    > sudo zypper install ./feeze-0.001-amd64.rpm
 
 ### Installation from tarball
 
@@ -49,14 +49,14 @@ installed. You will need to unpack the archive using
     # tar zxf feeze-VERSION-ARCH.tar.gz
 
 where `VERSION` is the feeze version and `ARCH` is the
-architecture it was built for. For version `0.001dev` built
+architecture it was built for. For version `0.001` built
 for `amd64`, you will have to use
 
-    # tar zxf feeze-0.001dev-amd64.tar.gz
+    # tar zxf feeze-0.001-amd64.tar.gz
 
 The result will be a directory with a name like `feeze-VERSION-ARCH`, so in
-our example of version `0.001dev` build for `amd64` the directory name will
-be `feeze-0.001dev-amd64`.
+our example of version `0.001` build for `amd64` the directory name will
+be `feeze-0.001-amd64`.
 
 ### Required Dependencies
 
@@ -99,7 +99,7 @@ To run feeze, you will need to install
 
 To start the feeze GUI, run the script `feeze` in the `bin` directory of the installation, e.g., using
 
-    # ./feeze-0.001dev-amd64/bin/feeze
+    # ./feeze-0.001-amd64/bin/feeze
 
 ## Feeze Control Window
 

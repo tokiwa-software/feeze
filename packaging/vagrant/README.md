@@ -94,7 +94,7 @@ manager with an existing one needs no new script. A new package manager needs
 one `install-<family>.sh`; the two existing scripts are the template.
 
 `arch` selects the package to download from the snapshot release, where the
-file name carries the architecture — feeze-0.001dev-amd64.deb.
+file name carries the architecture — feeze-0.001-amd64.deb.
 
 ## What the provisioning does
 

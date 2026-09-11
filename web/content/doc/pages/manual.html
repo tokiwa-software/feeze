@@ -37,7 +37,7 @@ where <code>x86_64</code> means <code>amd64</code> and
 <h3 id="installation-from-deb-package">Installation from deb
 package</h3>
 <p>On Debian, Ubuntu and derivatives, install the package using</p>
-<pre><code>&gt; sudo apt install ./feeze-0.001dev-amd64.deb</code></pre>
+<pre><code>&gt; sudo apt install ./feeze-0.001-amd64.deb</code></pre>
 <p>Keep the leading <code>./</code> and use <code>apt</code>, not
 <code>dpkg -i</code>: <code>apt</code> resolves the dependencies
 declared by the package, <code>dpkg</code> does not and would leave
@@ -45,21 +45,21 @@ feeze unconfigured.</p>
 <h3 id="installation-from-rpm-package">Installation from rpm
 package</h3>
 <p>On Fedora and RHEL, install the package using</p>
-<pre><code>&gt; sudo dnf install ./feeze-0.001dev-amd64.rpm</code></pre>
+<pre><code>&gt; sudo dnf install ./feeze-0.001-amd64.rpm</code></pre>
 <p>on openSUSE, use</p>
-<pre><code>&gt; sudo zypper install ./feeze-0.001dev-amd64.rpm</code></pre>
+<pre><code>&gt; sudo zypper install ./feeze-0.001-amd64.rpm</code></pre>
 <h3 id="installation-from-tarball">Installation from tarball</h3>
 <p>Installing feeze from a tarball gives you most control over where
 feeze will get installed. You will need to unpack the archive using</p>
 <pre><code># tar zxf feeze-VERSION-ARCH.tar.gz</code></pre>
 <p>where <code>VERSION</code> is the feeze version and <code>ARCH</code>
-is the architecture it was built for. For version <code>0.001dev</code>
+is the architecture it was built for. For version <code>0.001</code>
 built for <code>amd64</code>, you will have to use</p>
-<pre><code># tar zxf feeze-0.001dev-amd64.tar.gz</code></pre>
+<pre><code># tar zxf feeze-0.001-amd64.tar.gz</code></pre>
 <p>The result will be a directory with a name like
 <code>feeze-VERSION-ARCH</code>, so in our example of version
-<code>0.001dev</code> build for <code>amd64</code> the directory name
-will be <code>feeze-0.001dev-amd64</code>.</p>
+<code>0.001</code> build for <code>amd64</code> the directory name
+will be <code>feeze-0.001-amd64</code>.</p>
 <h3 id="required-dependencies">Required Dependencies</h3>
 <p>To run feeze, you will need to install</p>
 <ul>
@@ -85,7 +85,7 @@ until an exact GC is available.</p></li>
 <h3 id="running">Running</h3>
 <p>To start the feeze GUI, run the script <code>feeze</code> in the
 <code>bin</code> directory of the installation, e.g., using</p>
-<pre><code># ./feeze-0.001dev-amd64/bin/feeze</code></pre>
+<pre><code># ./feeze-0.001-amd64/bin/feeze</code></pre>
 <h2 id="feeze-control-window">Feeze Control Window</h2>
 <p>Once started, the feeze control window is opened.</p>
 <p><img src="images/control_window.png" alt="sample control window" width="638" /></p>
