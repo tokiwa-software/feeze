@@ -37,7 +37,6 @@ export DEBIAN_FRONTEND=noninteractive
 
 # --- Environment Variables Validation ---
 # Verify that required configuration variables are passed from Vagrant/machines.yml
-: "${FEEZE_VERSION:?not set — check 'release' in config/machines.yml}"
 : "${FEEZE_ARCH:?not set — check 'arch' for this machine}"
 
 # --- Paths & Endpoints ---

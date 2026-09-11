@@ -25,9 +25,13 @@
 # -----------------------------------------------------------------------
 require 'yaml'
 
+# --- Release version ---
+# Single source of truth: version.txt in the repository root
+RELEASE = File.read(File.expand_path("../../version.txt", __dir__)).strip
+raise "version.txt is empty" if RELEASE.empty?
+
 # --- Configuration Loader ---
-# Load and parse the virtual machine definitions from YAML configuration
-CFG_PATH = File.join(File.dirname(__FILE__), 'config', 'machines.yml')
+CFG_PATH = File.join(__dir__, 'config', 'machines.yml')
 raise "config not found: #{CFG_PATH}" unless File.exist?(CFG_PATH)
 cfg = YAML.load_file(CFG_PATH)
 
@@ -74,7 +78,7 @@ Vagrant.configure("2") do |config|
         path: "scripts/install-#{m['family']}.sh",
         env: {
           "FEEZE_ARCH"    => m['arch'].to_s,
-          "FEEZE_VERSION" => cfg['release'].to_s
+          "FEEZE_VERSION" => RELEASE
         }
     end
   end
