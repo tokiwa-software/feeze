@@ -434,12 +434,6 @@ a:visited {
               color .15s ease-out;
 }
 
-.footer a {
-  color: #555;
-  font-size: small;
-  font-weight: normal;
-}
-
 p a:hover,
 p a:focus,
 li a:hover,
@@ -597,11 +591,18 @@ a:visited:focus {
 }
 
 .footer {
-  /* fixed: columns share the width evenly, content length is ignored */
-  table-layout: fixed;
-/*  width: 100%; */
-  border-collapse: separate;
-  border-spacing: 0.25em;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3ch;
+  margin: 1em 0;
+}
+
+.footer a {
+  color: #555;
+  font-size: small;
+  font-weight: normal;
+  padding: 0.4em 0;
 }
 
 .footer a:hover,
