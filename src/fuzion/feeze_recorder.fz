@@ -142,7 +142,7 @@ process_commands ! options =>
 
   say "ready..."
 
-  read(n i32) => (io.buffered lm).read_string n
+  read(n i64) => (io.buffered lm).read_string n
   match io.buffered lm .read_line
     str String =>
       process_command str
@@ -157,5 +157,5 @@ say "running $(envir.Args.env[0]) (feeze_recorder.fz)"
 o := options "<FUZION_HOME>/$LIB_FUZION" SHARED_MEM_NAME SHARED_MEM_SIZE
 o ! () ->
   lm ! ()->
-    (io.stdin.reader lm) ! ()->
+    io.buffered lm .Reader.instate (io.stdin.reader lm) ()->
       while process_commands do
