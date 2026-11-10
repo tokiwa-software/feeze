@@ -167,7 +167,24 @@ $(BUILD_CLASSES)/$(JAVA_MAIN_CLASSFILE): $(JAVA_SOURCES)
 	mkdir -p $(BUILD_CLASSES)
 	javac -d $(BUILD_CLASSES) $^ && touch $@
 
-$(BUILD_DIR)/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod $(BUILD_DIR)/icon.svg
+# application icons in various sizes, rendered from the favicon SVGs, used by
+# the swing GUI for the title bar and task bar (see Feeze.icons())
+ICON_SIZES := 256 128 64 48 32 24 16
+ICON_DIR := build/generated/icons
+
+$(ICON_DIR)/icon-%.png: assets/favicon.svg $(FEEZE_REPO)/bin/generate_icon.sh
+	@mkdir -p $(@D)
+	$(FEEZE_REPO)/bin/generate_icon.sh $< $@ $*
+
+$(ICON_DIR)/icon-dark-%.png: assets/favicon_dark.svg $(FEEZE_REPO)/bin/generate_icon.sh
+	@mkdir -p $(@D)
+	$(FEEZE_REPO)/bin/generate_icon.sh $< $@ $*
+
+ICON_PNGS := \
+	$(ICON_SIZES:%=$(ICON_DIR)/icon-%.png) \
+	$(ICON_SIZES:%=$(ICON_DIR)/icon-dark-%.png)
+
+$(BUILD_DIR)/bin/feeze: bin/feeze $(BUILD_DIR)/feeze.jmod $(BUILD_DIR)/icon.svg $(ICON_PNGS)
 	mkdir -p $(@D)
 	cat $< | sed "s-@MAIN_CLASS@-feeze/$(JAVA_MAIN_CLASS)-g" >$@
 	chmod +x $@
@@ -249,4 +266,4 @@ include $(FEEZE_REPO)/packaging.mk
 .PHONY: release
 release: clean all
 	rm -f feeze_$(VERSION_AND_PLATFORM).tar.gz
-	tar cfz feeze_$(VERSION_AND_PLATFORM).tar.gz --transform s/^build/feeze_$(VERSION_AND_PLATFORM)/ build/bin build/classes build/libbpf build/libbpf_obj build/icon.svg
+	tar cfz feeze_$(VERSION_AND_PLATFORM).tar.gz --transform s/^build/feeze_$(VERSION_AND_PLATFORM)/ build/bin build/classes build/libbpf build/libbpf_obj build/icon.svg build/generated/icons

@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package dev.feeze;
 
 import java.awt.HeadlessException;
+import java.awt.Image;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,8 +43,11 @@ import java.nio.file.Path;
 
 import java.nio.channels.FileChannel;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
@@ -239,6 +243,45 @@ public class Feeze extends ANY implements Offsets
       {
         System.err.println("*** warning: Attempt to create " + LOCAL_ICON_FILE + " in " + LOCAL_APPS_DIR + " resulted in " + io);
       }
+  }
+
+
+  /**
+   * Determine whether the desktop uses a dark colour scheme, so the app can
+   * display the appropriate application icon in the title bar and task bar.
+   */
+  static boolean isDarkTheme()
+  {
+    // NYI: UNDER DEVELOPMENT: dark theme detection missing, always using light icon
+    return false;
+  }
+
+
+  /**
+   * Return the pre-rendered icon images for the current theme, loaded from
+   * generated/icons/{icon,icon-dark}-{size}.png in the feeze home directory.
+   * Sizes that are missing or cannot be decoded are silently skipped.
+   */
+  static List<Image> icons()
+  {
+    var result = new ArrayList<Image>();
+    var variant = isDarkTheme() ? "icon-dark" : "icon";
+    var iconDir = Path.of(FEEZE_HOME).resolve("generated/icons");
+    for (var size : new int[] { 16, 24, 32, 48, 64, 128, 256 })
+      {
+        try (var in = Files.newInputStream(iconDir.resolve(variant + "-" + size + ".png")))
+          {
+            var image = ImageIO.read(in);
+            if (image != null)
+              {
+                result.add(image);
+              }
+          }
+        catch (IOException io)
+          {
+          }
+      }
+    return result;
   }
 
 }

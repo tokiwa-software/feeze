@@ -85,6 +85,8 @@ pkg-stage: pkg-check-arch $(PKG_BINARIES) $(FEEZE_REPO)/packaging/feeze.desktop
 	cp -a $(BUILD_CLASSES) $(PKG_SHARE)/classes
 	install -m 644 $(BUILD_DIR)/feeze.jmod $(PKG_SHARE)/feeze.jmod
 	install -m 644 $(BUILD_DIR)/icon.svg   $(PKG_SHARE)/icon.svg
+	mkdir -p $(PKG_SHARE)/generated/icons
+	cp -a $(ICON_DIR)/. $(PKG_SHARE)/generated/icons/
 	install -m 644 $(FEEZE_REPO)/README.md $(PKG_SHARE)/README.md
 	install -m 644 $(FEEZE_REPO)/LICENSE   $(PKG_SHARE)/LICENSE
 	mkdir -p $(PKG_ROOT)/usr/bin

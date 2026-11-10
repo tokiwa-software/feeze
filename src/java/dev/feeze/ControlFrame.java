@@ -330,6 +330,7 @@ public class ControlFrame extends JFrame
         var content = panel;
         content.setOpaque(true);
         setContentPane(content);
+        setIconImages(Feeze.icons());
         pack();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter()

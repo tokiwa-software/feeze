@@ -30,6 +30,8 @@ sudo apt-get install -y \
   libelf-dev \
   binutils\
   pandoc \
+  inkscape \
+  imagemagick \
   "linux-tools-$(uname -r)"
 
 JAVA_HOME="/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)"

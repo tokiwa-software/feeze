@@ -48,6 +48,7 @@ jobs:
         sudo apt-get install libelf-dev
         sudo apt-get install linux-tools-`uname -r`
         sudo apt-get install pandoc
+        sudo apt-get install inkscape imagemagick
 
         echo "JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64" >> $GITHUB_ENV
         echo "/usr/lib/jvm/java-25-openjdk-amd64/bin" >> $GITHUB_PATH

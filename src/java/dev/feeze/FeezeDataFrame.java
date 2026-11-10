@@ -84,6 +84,7 @@ public class FeezeDataFrame extends JFrame
         content.setOpaque(true);
 
         setContentPane(content);
+        setIconImages(Feeze.icons());
         pack();
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter()

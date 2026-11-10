@@ -1,5 +1,5 @@
 name: Install feeze build dependencies
-description: JDK 25, libgc, libelf, linux-tools and pandoc
+description: JDK 25, libgc, libelf, linux-tools, pandoc, inkscape and imagemagick
 
 runs:
   using: composite
