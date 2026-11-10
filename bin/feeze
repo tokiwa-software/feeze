@@ -77,7 +77,13 @@ command -v "$FEEZE_JAVA" >/dev/null || (
     exit 1)
 
 # Get main Java version number
-java_version=$($FEEZE_JAVA -version 2>&1 | head -n1 | grep -oE 'version "[0-9]+\.' | grep -oE '[0-9]+')
+java_version=$($FEEZE_JAVA -version 2>&1 | head -n1 | grep -oE 'version "[0-9]+' | grep -oE '[0-9]+') || true
+
+# Report failed version extraction instead of failing silently
+if [ -z "$java_version" ]; then
+    echo 1>&2 "*** Could not determine Java version of command '$FEEZE_JAVA'."
+    exit 1
+fi
 
 # Check if version is at least 25
 if test "$java_version" -lt 25;  then
